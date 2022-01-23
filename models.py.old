@@ -1,0 +1,14 @@
+Simple
+
+[Gen1]
+name = altruism/shelfish
+inheritance = Dominance
+
+Beard
+
+[Gen1]
+name = altruism/shelfish
+inheritance = Dominance
+
+[Gen2]
+name = beard

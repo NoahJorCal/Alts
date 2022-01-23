@@ -1,0 +1,2 @@
+def simulation():
+    print('beard')
