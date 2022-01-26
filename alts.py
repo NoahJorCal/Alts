@@ -4,6 +4,12 @@ from os import path
 from configparser import ConfigParser
 import re
 import random
+import alts_plot
+from collections import defaultdict
+
+ALLELES = 0
+RANGES = 1
+INHERITANCE_DIVIDER = '(?:>|=|\s|$|^)'
 
 #Import general configuration
 general_config = ConfigParser()
@@ -14,130 +20,298 @@ model_name = general_config['simulation']['model']
 model_config = ConfigParser()
 model_config.read(path.join('models', model_name + '.ini'))
 py_module = 'models.' + model_config['module']['name']
-model = __import__(py_module, fromlist=[''])
+model = __import__(py_module, fromlist = [''])
 
 class Simulation:
-    def __init__(self, population_size, lifespan, model):
+    def __init__(self, population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_probability):
         self.__population_size = population_size
         self.__lifespan = lifespan
         self.__generation = 0
         self.__population = []
         self.__model = model
+        self.__genes_properties = {}
+        self.__reproduction = reproduction
+        self.__selection_group_size = selection_group_size
+        self.__groups = []
+        self.__survival_range = survival_range
+        self.__altruism_probability = altruism_probability
+        self.__simulation_summary = self.generate_simulation_summary()
 
-    #@property
-    #def population_size(self):
-        #return self.__population_size
-
-    #@property
-    #def current_generation(self):
-        #return self.__generation
-
-    def populate(self):
-        for i in range(self.__population_size):
-            self.__population.append(Individual())
-
-    @property
-    def population(self):
-        return self.__population
-
-    def pass_generation(self):
-        #Do stuff
-        self.__generation += 1
-
-class Individual():
-    def __init__(self):
-        self.__age = 0
-        self.__genotype = self.set_individual_genotype()
-        self.__phenotype = self.choose_phenotype()
-
-    #Returns a list of random alleles of each gene considering initial frequencies
-    def set_individual_genotype(self):
-        allele_pairs = []
-        for gene in model_config.sections()[1:]:
-            alleles = []
-            for i in range(2):
-                #print(gene)
-                allele_options = re.split('\s*>\s*|\s*<\s*|\s*=\s*',model_config[gene]['alleles'])
-                initial_frequencies = re.split(',\s*',model_config[gene]['initial_frequencies'])
+        for gene in model_config.sections():
+            if gene != 'module' and gene != 'plot':
+                incorrect_character = re.search('[^\w\s=>]', model_config[gene]['alleles'])
+                if incorrect_character:
+                    raise Exception(f'Character "{incorrect_character.group(0)}" in allele not valid')
+                allele_options = re.split('\s*>\s*|\s*=\s*', model_config[gene]['alleles'])
+                for allele in allele_options:
+                    if re.search('\s', allele):
+                        raise Exception(f'Missing inheritance symbol in "{allele}", allele names can\'t have spaces')
+                initial_frequencies = re.split('\s*,\s*', model_config[gene]['initial_frequencies'])
                 #First frequence range is set manually as it needn't be calculated
                 initial_frequencies_ranges = [float(initial_frequencies[0])]
                 for i in range(len(initial_frequencies))[1:]:
                     initial_frequencies_ranges.append(float(initial_frequencies[i])+initial_frequencies_ranges[i-1])
                 if len(initial_frequencies_ranges) != len(allele_options):
                     initial_frequencies_ranges.append(1)
+                self.__genes_properties[gene] = (allele_options, initial_frequencies_ranges)
+
+    #@property
+    #def population_size(self):
+        #return self.__population_size
+
+    @property
+    def current_generation(self):
+        return self.__generation
+
+    @property
+    def population(self):
+        return self.__population
+
+    @population.setter
+    def population(self,value):
+        self.__population = value
+
+    @property
+    def genes(self):
+        return sorted(self.__genes_properties.keys())
+
+    @property
+    def survival_range(self):
+        return self.__survival_range
+
+    @property
+    def groups(self):
+        return self.__groups
+
+    @property
+    def simulation_summary(self):
+        return self.__simulation_summary
+
+    def populate(self):
+        for i in range(self.__population_size):
+            individual = Individual(self)
+            self.__population.append(individual)
+        self.save_generation_data()
+
+    def generate_individual_genotype(self):
+        allele_pairs = []
+        for gene in self.genes:
+            alleles = []
+            for i in range(2):
                 random_picker = random.random()
-                for i in range(len(initial_frequencies_ranges)):
-                    if random_picker < initial_frequencies_ranges[i]:
-                        alleles.append(allele_options[i])
+                for i in range(len(self.__genes_properties[gene][RANGES])):
+                    if random_picker < self.__genes_properties[gene][RANGES][i]:
+                        alleles.append(self.__genes_properties[gene][ALLELES][i])
                         break
             allele_pairs.append(alleles)
         return allele_pairs
 
-    #Calculates the phenotype considering the alleles and inheritance pattern
-    def choose_phenotype(self):
-        #print(self.genotype)
-        genotype = []
-        for i in range(len(self.__genotype)):
-            gene = model_config.sections()[i+1]
-            #print(gene)
-            #print(model_config[gene]['alleles'])
-            if self.__genotype[i][0] == self.__genotype[i][1]:
-                genotype.append(self.__genotype[i][0])
+    def group_individuals(self):
+        population_copy = self.__population.copy()
+        groups = []
+        while len(population_copy) >= self.__selection_group_size:
+            group = []
+            for i in range(self.__selection_group_size):
+                group.append(population_copy.pop(random.randint(0, len(population_copy) - 1)))
+            groups.append(group)
+        while len(population_copy) != 0:
+            groups[random.randint(0, len(groups) - 1)].append(population_copy.pop(0))
+        self.__groups = groups
+
+    def assing_individuals_survival_probability(self):
+        for individual in self.__population:
+            individual.survival_probability = random.uniform(self.__survival_range[0], self.__survival_range[1])
+
+    def selection_event(self):
+        survivors_population = []
+        for individual in self.__population:
+            picker = random.random()
+            if picker < individual.survival_probability:
+                survivors_population.append(individual)
+        self.population = survivors_population
+
+    def reproduce(self):
+        if self.__reproduction == 'panmixia':
+            new_population = []
+            if self.__lifespan == 1:
+                missing_population = self.__population_size
             else:
-                between_alleles = re.search(self.__genotype[i][0]+'(.*)'+self.__genotype[i][1], model_config[gene]['alleles'])
-                reverse = False
-                if not between_alleles:
-                    between_alleles = re.search(self.__genotype[i][1]+'(.*)'+self.__genotype[i][0], model_config[gene]['alleles'])
-                    reverse = True
-                raw_symbol = re.search('>|<',between_alleles.group(1)[::-1])
-                if not raw_symbol:
-                    config_symbol = '='
-                else:
-                    config_symbol = raw_symbol.group()
-                if config_symbol == '>':
-                    if reverse:
-                        genotype.append(self.__genotype[i][1])
-                    else:
-                        genotype.append(self.__genotype[i][0])
-                elif config_symbol == '<':
-                    if reverse:
-                        genotype.append(self.__genotype[i][0])
-                    else:
-                        genotype.append(self.__genotype[i][1])
-                else:
-                        genotype.append(self.__genotype[i][0]+'_'+self.__genotype[i][1])
-        return genotype
+                survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
+                missing_population = self.__population_size - len(survivors_population)
+            while len(new_population) < missing_population:
+                reproductors = random.sample(self.__population, 2)
+                new_individual_genotype = []
+                for i in range(len(reproductors[0].genotype)):
+                    new_individual_genotype.append([random.choice(reproductors[0].genotype[i]), random.choice(reproductors[1].genotype[i])])
+                new_individual = Individual(self)
+                new_individual.genotype = new_individual_genotype
+                new_individual.phenotype = new_individual.choose_phenotype()
+                new_population.append(new_individual)
+            if self.__lifespan == 1:
+                self.__population = new_population
+            else:
+                for individual in survivors_population:
+                    individual.age_individual()
+                survivors_population.extend(new_population)
+                self.__population = survivors_population
+
+    def generate_simulation_summary(self):
+        gene = model_config['plot']['gene']
+        allele_options = re.split('\s*>\s*|\s*=\s*', model_config[gene]['alleles'])
+        summary_dictionary = {}
+        for allele in allele_options:
+            summary_dictionary[allele] = []
+        return summary_dictionary
+
+    def save_generation_data(self):
+        gene = model_config['plot']['gene']
+        config_sections = model_config.sections()
+        config_sections.remove('module')
+        config_sections.remove('plot')
+        gene_index = config_sections.index(gene)
+        groups = defaultdict(list)
+        for individual in self.__population:
+            groups[individual.phenotype[gene_index]].append(individual)
+        for phenotype in groups.keys():
+            if len(groups[phenotype]) == self.__population_size:
+                for phenotype_drift in self.__simulation_summary.keys():
+                    self.__simulation_summary[phenotype_drift].append(0)
+                self.__simulation_summary[phenotype].pop()
+                self.__simulation_summary[phenotype].append(len(groups[phenotype]))
+            else:
+                self.__simulation_summary[phenotype].append(len(groups[phenotype]))
+
+
+    def pass_generation(self):
+        self.assing_individuals_survival_probability()
+        self.group_individuals()
+        model.selection(self.groups)
+        self.selection_event()
+        self.reproduce()
+        self.__generation += 1
+        self.save_generation_data()
+
+class Individual:
+    def __init__(self, simulation):
+        self.__simulation = simulation
+        self.__age = 0
+        self.__genotype = simulation.generate_individual_genotype()
+        self.__genes_properties = {}
+        self.__phenotype = self.choose_phenotype()
+        self.__survival_probability = 0
+
+    @property
+    def age(self):
+        return self.__age
 
     @property
     def genotype(self):
         return self.__genotype
 
+    @genotype.setter
+    def genotype(self, value):
+        self.__genotype = value
+        self.choose_phenotype()
+
     @property
     def phenotype(self):
         return self.__phenotype
 
-    #@property
-    #def age(self):
-        #return self.__age
+    @phenotype.setter
+    def phenotype(self, value):
+        self.__phenotype = value
 
-ind = Individual()
-print(ind.genotype)
-print(ind.phenotype)
+    @property
+    def survival_probability(self):
+        return self.__survival_probability
+
+    @survival_probability.setter
+    def survival_probability(self, value):
+        self.__survival_probability = value
+
+    #Calculates the phenotype considering the alleles and inheritance pattern
+    def choose_phenotype(self):
+        phenotype = []
+        for i in range(len(self.__simulation.genes)):
+            gene = self.__simulation.genes[i]
+            if self.__genotype[i][0] == self.__genotype[i][1]:
+                phenotype.append(self.__genotype[i][0])
+            else:
+                characters_between_alleles = re.search(
+                    f'{INHERITANCE_DIVIDER}{self.__genotype[i][0]}{INHERITANCE_DIVIDER}(.*){INHERITANCE_DIVIDER}{self.__genotype[i][1]}{INHERITANCE_DIVIDER}',
+                    model_config[gene]['alleles'])
+                reverse = False
+                if not characters_between_alleles:
+                    characters_between_alleles = re.search(
+                        f'{INHERITANCE_DIVIDER}{self.__genotype[i][1]}{INHERITANCE_DIVIDER}(.*){INHERITANCE_DIVIDER}{self.__genotype[i][0]}{INHERITANCE_DIVIDER}',
+                        model_config[gene]['alleles'])
+                    reverse = True
+                if '>' in characters_between_alleles.group(1):
+                    if reverse:
+                        phenotype.append(self.__genotype[i][1])
+                    else:
+                        phenotype.append(self.__genotype[i][0])
+                else:
+                    phenotype.append(self.__genotype[i][0]+'_'+self.__genotype[i][1])
+        return phenotype
+
+    def age_individual(self):
+        self.__age += 1
 
 def main():
+    generations = int(general_config['simulation']['generations'])
     population_size = int(general_config['population']['size'])
     lifespan = int(general_config['population']['lifespan'])
+    reproduction = general_config['population']['reproduction']
+    selection_group_size = int(general_config['population']['selection_group_size'])
+    survival_range = [float(perc) for perc in re.split(',\s*', general_config['population']['survival_range'])]
+    altruism_probability = float(general_config['population']['altruism_probability'])
     model = general_config['simulation']['model']
-    p = Simulation(population_size, lifespan, model)
-    #p.populate()
+    p = Simulation(population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_probability)
+
+    #ind = Individual(p)
+    #print(ind.genotype)
+    #print(ind.phenotype)
+
+    p.populate()
+    for i in range(generations):
+        p.pass_generation()
     #for i in range(len(p.population)):
-        #print(p.population[i].genotype)
-    p.pass_generation()
-    p.pass_generation()
-    p.pass_generation()
-    p.pass_generation()
-    p.pass_generation()
-    p.pass_generation()
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #print()
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #print()
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #print()
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #print()
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #p.pass_generation()
+    #for i in range(len(p.population)):
+        #print(p.population[i], p.population[i].phenotype[0], p.population[i].age, p.population[i].genotype[0])
+    #print()
+    #p.pass_generation()
+    #p.pass_generation()
+    #p.pass_generation()
+    #print('despues de la generacion', p.population)
+    alts_plot.plot(p.simulation_summary)
 
 if __name__ == '__main__':
     main()
