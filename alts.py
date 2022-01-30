@@ -23,8 +23,10 @@ py_module = 'models.' + model_config['module']['name']
 model = __import__(py_module, fromlist = [''])
 
 class Simulation:
-    def __init__(self, population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_probability):
+    def __init__(self, population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_cost_benefit, altruism_probability):
         self.__population_size = population_size
+        self.__last_population_size = 0
+        #self.__size_replenish = size_replenish
         self.__lifespan = lifespan
         self.__generation = 0
         self.__population = []
@@ -34,6 +36,9 @@ class Simulation:
         self.__selection_group_size = selection_group_size
         self.__groups = []
         self.__survival_range = survival_range
+        self.__min_max_survival_probability = []
+        self.__survival_rate_mean = 0
+        self.__altruism_cost_benefit = altruism_cost_benefit
         self.__altruism_probability = altruism_probability
         self.__simulation_summary = self.generate_simulation_summary()
 
@@ -109,14 +114,18 @@ class Simulation:
     def group_individuals(self):
         population_copy = self.__population.copy()
         groups = []
-        while len(population_copy) >= self.__selection_group_size:
-            group = []
-            for i in range(self.__selection_group_size):
-                group.append(population_copy.pop(random.randint(0, len(population_copy) - 1)))
-            groups.append(group)
-        while len(population_copy) != 0:
-            groups[random.randint(0, len(groups) - 1)].append(population_copy.pop(0))
-        self.__groups = groups
+        if len(population_copy) <= self.__selection_group_size:
+            groups.append(population_copy)
+            self.__groups = groups
+        else:
+            while len(population_copy) > self.__selection_group_size:
+                group = []
+                for i in range(self.__selection_group_size):
+                    group.append(population_copy.pop(random.randint(0, len(population_copy) - 1)))
+                groups.append(group)
+            while len(population_copy) != 0:
+                groups[random.randint(0, len(groups) - 1)].append(population_copy.pop(0))
+            self.__groups = groups
 
     def assing_individuals_survival_probability(self):
         for individual in self.__population:
@@ -124,36 +133,79 @@ class Simulation:
 
     def selection_event(self):
         survivors_population = []
+        survival_probabilities = []
         for individual in self.__population:
+            survival_probabilities.append(individual.survival_probability)
             picker = random.random()
             if picker < individual.survival_probability:
                 survivors_population.append(individual)
         self.population = survivors_population
+        self.__survival_rate_mean = sum(survival_probabilities)/len(survival_probabilities)
+
+    #def selection_event(self):
+        #survivors_population = []
+        ##print('==================================================')
+        ##print(self.__min_max_survival_probability)
+        ##print(self.__min_max_survival_probability[0], min(1,self.__min_max_survival_probability[1]))
+        #random_picker = random.uniform(self.__min_max_survival_probability[0], min(1,self.__min_max_survival_probability[1]))
+        #print(random_picker)
+        ##print('==================================================')
+        #for individual in self.__population:
+            #if random_picker < individual.survival_probability:
+                #survivors_population.append(individual)
+        #self.population = survivors_population
 
     def reproduce(self):
-        if self.__reproduction == 'panmixia':
-            new_population = []
-            if self.__lifespan == 1:
-                missing_population = self.__population_size
-            else:
-                survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
-                missing_population = self.__population_size - len(survivors_population)
-            while len(new_population) < missing_population:
-                reproductors = random.sample(self.__population, 2)
-                new_individual_genotype = []
-                for i in range(len(reproductors[0].genotype)):
-                    new_individual_genotype.append([random.choice(reproductors[0].genotype[i]), random.choice(reproductors[1].genotype[i])])
-                new_individual = Individual(self)
-                new_individual.genotype = new_individual_genotype
-                new_individual.phenotype = new_individual.choose_phenotype()
-                new_population.append(new_individual)
-            if self.__lifespan == 1:
-                self.__population = new_population
-            else:
-                for individual in survivors_population:
-                    individual.age_individual()
-                survivors_population.extend(new_population)
-                self.__population = survivors_population
+        #print(len(self.__population))
+        if len(self.__population) < 2:
+            alts_plot.plot(self.simulation_summary)
+            exit()
+        else:
+            if self.__reproduction == 'panmixia':
+                new_population = []
+                #if self.__size_replenish == 'False':
+                    #minimum_survival_probability = self.survival_range[0] - self.__altruism_cost_benefit[0]
+                    #maximum_survival_probability = min(1, (self.survival_range[1] + self.__altruism_cost_benefit[1]))
+                    #multiplication_factor = (((self.__survival_rate_mean - minimum_survival_probability) * (1.05 - 0.95)) / (maximum_survival_probability - minimum_survival_probability)) + 0.95
+                    #print(minimum_survival_probability, maximum_survival_probability)
+                    #if self.__lifespan == 1:
+                        ##print(round(len(self.__population)*
+                        ##((self.__last_population_size+(self.__last_population_size - len(self.__population)))/self.__last_population_size)))
+                        #print(self.__last_population_size, self.__survival_rate_mean)
+                        #missing_population = self.__last_population_size * multiplication_factor
+                        #print(missing_population)
+                        ##random.randrange(round(len(self.__population)), round(len(self.__population) + (self.__population_size * 0.2)))
+                        ##*((self.__last_population_size+(self.__last_population_size - len(self.__population)))/self.__last_population_size)))
+                    #else:
+                        #missing_population = random.randrange(len(self.__population), round(len(self.__population)*1.5))
+                        #survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
+                #elif self.__size_replenish == 'True':
+                    #if self.__lifespan == 1:
+                        #missing_population = self.__population_size
+                    #else:
+                        #survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
+                        #missing_population = self.__population_size - len(survivors_population)
+                if self.__lifespan == 1:
+                    missing_population = self.__population_size
+                else:
+                    survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
+                    missing_population = self.__population_size - len(survivors_population)
+                while len(new_population) < missing_population:
+                    reproductors = random.sample(self.__population, 2)
+                    new_individual_genotype = []
+                    for i in range(len(reproductors[0].genotype)):
+                        new_individual_genotype.append([random.choice(reproductors[0].genotype[i]), random.choice(reproductors[1].genotype[i])])
+                    new_individual = Individual(self)
+                    new_individual.genotype = new_individual_genotype
+                    new_individual.phenotype = new_individual.choose_phenotype()
+                    new_population.append(new_individual)
+                if self.__lifespan == 1:
+                    self.__population = new_population
+                else:
+                    for individual in survivors_population:
+                        individual.age_individual()
+                    survivors_population.extend(new_population)
+                    self.__population = survivors_population
 
     def generate_simulation_summary(self):
         gene = model_config['plot']['gene']
@@ -173,7 +225,7 @@ class Simulation:
         for individual in self.__population:
             groups[individual.phenotype[gene_index]].append(individual)
         for phenotype in groups.keys():
-            if len(groups[phenotype]) == self.__population_size:
+            if len(groups[phenotype]) == len(self.__population):
                 for phenotype_drift in self.__simulation_summary.keys():
                     self.__simulation_summary[phenotype_drift].append(0)
                 self.__simulation_summary[phenotype].pop()
@@ -183,13 +235,24 @@ class Simulation:
 
 
     def pass_generation(self):
+        #print('EMPIEZA UNA GENERACION')
+        #print(len(self.__population))
         self.assing_individuals_survival_probability()
+        #print('SE HA ASIGNADO LA PROBABILIDAD DE SOBREVIVIR')
         self.group_individuals()
-        model.selection(self.groups)
+        #print('SE HAN AGRUPADO LOS INDIVIDUOS')
+        self.__last_population_size = len(self.__population)
+        self.__min_max_survival_probability = model.selection(self.groups)
+        #print('SE HA HECHO AL MOVIDA DEL ALTRUISMO')
         self.selection_event()
+        #print('SE HAN MUERTO LOS QUE TENÍAN POCA PROBABILIDAD')
         self.reproduce()
+        #print('SE HAN REPRODUCIDO')
         self.__generation += 1
         self.save_generation_data()
+        #print('HA PASADO UNA GENERACION')
+        print(self.__generation)
+
 
 class Individual:
     def __init__(self, simulation):
@@ -261,13 +324,15 @@ class Individual:
 def main():
     generations = int(general_config['simulation']['generations'])
     population_size = int(general_config['population']['size'])
+    #size_replenish = general_config['population']['size_replenish']
     lifespan = int(general_config['population']['lifespan'])
     reproduction = general_config['population']['reproduction']
     selection_group_size = int(general_config['population']['selection_group_size'])
     survival_range = [float(perc) for perc in re.split(',\s*', general_config['population']['survival_range'])]
+    altruism_cost_benefit = [float(general_config['population']['altruism_cost']), float(general_config['population']['altruism_benefit'])]
     altruism_probability = float(general_config['population']['altruism_probability'])
     model = general_config['simulation']['model']
-    p = Simulation(population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_probability)
+    p = Simulation(population_size, lifespan, model, reproduction, selection_group_size, survival_range, altruism_cost_benefit, altruism_probability)
 
     #ind = Individual(p)
     #print(ind.genotype)

@@ -1,0 +1,4 @@
+la cosa de que la población no vuelva al número inicial
+
+es mejor poner una probabilidad de supervivencia global? mejor que darle una probabilidad a cada uno y que luego se calcule un número al azar
+    Lo he probado y creo que queda mejor pero hace que si la población no vuelve al número inicial es muy probable que todos mueran. Corrijo, siempre es más probable que todos mueran

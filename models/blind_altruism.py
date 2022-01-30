@@ -18,7 +18,7 @@ altruism_cost = float(general_config['population']['altruism_cost'])
 altruism_benefit = float(general_config['population']['altruism_benefit'])
 
 def selection(groups):
-    count = 0
+    survival_probabilities = []
     for group in groups:
         for individual in group:
             if individual.phenotype[0] == 'altruistic':
@@ -28,4 +28,9 @@ def selection(groups):
                     individual.survival_probability -= altruism_cost
                     benefactor = random.choice(possible_benefactors)
                     benefactor.survival_probability += altruism_benefit
-        count += 1
+            survival_probabilities.append(individual.survival_probability)
+    #print('===========================')
+    #print(survival_probabilities)
+    #print([min(survival_probabilities), max(survival_probabilities)])
+    #print('===========================')
+    return [min(survival_probabilities), max(survival_probabilities)]
