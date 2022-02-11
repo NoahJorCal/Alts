@@ -1,16 +1,45 @@
 from configparser import ConfigParser
-from os import path
 from matplotlib import pyplot as plt
+from alts import alts_main
+import re
+from itertools import product
 
-def plot(simulation_summary):
-    generation_x = range(len(list(simulation_summary.values())[0]))
-    phenotypes_y = []
-    legend_phenotypes = []
-    for phenotype, count in simulation_summary.items():
-        phenotypes_y.append(count)
-        legend_phenotypes.append(phenotype)
-    for phenotype in phenotypes_y:
-        plt.plot(generation_x, phenotype)
+#Import general configuration
+general_config = ConfigParser()
+general_config.read('config.ini')
+
+def plot():
+    #Run the main function of the alts script, runs a simulation and generates a summary
+    simulation_summary, alleles_combinations_indexes, dict_allele_options = alts_main()
+    population_size = int(general_config['population']['size'])
+    genes = general_config['plot']['genes'].replace(' ','').split(',')
+    generation_x = list(range(int(general_config['simulation']['generations'])))
+    plot_info = {}
+    allele_options = []
+    for gene in genes:
+        allele_options.append(dict_allele_options[gene])
+    for combination in product(*allele_options):
+        match_indexes = list(range(len(simulation_summary)))
+        phenotype_name = ''
+        for element in combination:
+            new_match_indexes = []
+            for index in match_indexes:
+                phenotype = list(alleles_combinations_indexes.keys())[index]
+                if re.search('(?:&|^)('+element+')(?:&|$)', phenotype):
+                    new_match_indexes.append(index)
+            match_indexes = new_match_indexes
+            phenotype_name += element+'&'
+        count_list = [0]*int(general_config['simulation']['generations'])
+        for generation in generation_x:
+            for index in match_indexes:
+                count_list[generation] += simulation_summary[index][generation]
+            plot_info[phenotype_name[:-1]] =count_list
+        #print(plot_info)
+
+    phenotypes_y = plot_info.values()
+    legend_phenotypes = plot_info.keys()
+
+    plt.stackplot(generation_x, phenotypes_y, labels = legend_phenotypes)
 
     plt.title('Number of individuals by phenotype')
     plt.xlabel('Generation')
@@ -19,7 +48,7 @@ def plot(simulation_summary):
 
     plt.show()
 
-
+plot()
 
 
 

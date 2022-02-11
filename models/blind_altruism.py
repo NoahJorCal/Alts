@@ -22,11 +22,18 @@ def selection(groups):
     for group in groups:
         for individual in group:
             if individual.phenotype[0] == 'altruistic':
-                if random.random() > altruism_probability:
-                    possible_benefactors = group.copy()
-                    possible_benefactors.pop(group.index(individual))
+                if random.random() < altruism_probability:
+                    possible_beneficiaries = group.copy()
+                    possible_beneficiaries.pop(group.index(individual))
                     individual.survival_probability -= altruism_cost
-                    benefactor = random.choice(possible_benefactors)
+                    benefactor = random.choice(possible_beneficiaries)
+                    benefactor.survival_probability += altruism_benefit
+            elif '_' in individual.phenotype[0]:
+                if random.random() < altruism_probability/2:
+                    possible_beneficiaries = group.copy()
+                    possible_beneficiaries.pop(group.index(individual))
+                    individual.survival_probability -= altruism_cost
+                    benefactor = random.choice(possible_beneficiaries)
                     benefactor.survival_probability += altruism_benefit
             survival_probabilities.append(individual.survival_probability)
     #print('===========================')
