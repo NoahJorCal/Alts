@@ -32,8 +32,8 @@ def plot():
         count_list = [0]*int(general_config['simulation']['generations'])
         for generation in generation_x:
             for index in match_indexes:
-                count_list[generation] += simulation_summary[index][generation]
-            plot_info[phenotype_name[:-1]] =count_list
+                count_list[generation] += simulation_summary[index][generation]/population_size
+            plot_info[phenotype_name[:-1]] = count_list
         #print(plot_info)
 
     phenotypes_y = plot_info.values()
@@ -41,9 +41,9 @@ def plot():
 
     plt.stackplot(generation_x, phenotypes_y, labels = legend_phenotypes)
 
-    plt.title('Number of individuals by phenotype')
+    plt.title('Proportion of individuals by phenotype')
     plt.xlabel('Generation')
-    plt.ylabel('Number of individuals')
+    plt.ylabel('Proportion of individuals')
     plt.legend(legend_phenotypes)
 
     plt.show()

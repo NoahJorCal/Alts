@@ -4,14 +4,9 @@ import random
 from configparser import ConfigParser
 import os
 from os import path
-#import alts
 
 general_config = ConfigParser()
 general_config.read('config.ini')
-
-#model_name = os.path.basename(__file__)[:-3]
-#model_config = ConfigParser()
-#model_config.read(path.join('models', model_name + '.ini'))
 
 altruism_probability = float(general_config['population']['altruism_probability'])
 altruism_cost = float(general_config['population']['altruism_cost'])
@@ -23,21 +18,21 @@ def selection(groups):
         for individual in group:
             if individual.phenotype[0] == 'altruistic':
                 if random.random() < altruism_probability:
-                    possible_beneficiaries = group.copy()
-                    possible_beneficiaries.pop(group.index(individual))
+                    possible_recipients = group.copy()
+                    #If the altruistic individual is going to act altruistic, that
+                    #individual is deleted from the posible benefile beneficiaries
+                    possible_recipients.pop(group.index(individual))
                     individual.survival_probability -= altruism_cost
-                    benefactor = random.choice(possible_beneficiaries)
-                    benefactor.survival_probability += altruism_benefit
+                    recipient = random.choice(possible_recipients)
+                    recipient.survival_probability += altruism_benefit
+            #If the individual has the combined allele of selfish and altruistic
+            #the probability to act altruistic is half
             elif '_' in individual.phenotype[0]:
                 if random.random() < altruism_probability/2:
-                    possible_beneficiaries = group.copy()
-                    possible_beneficiaries.pop(group.index(individual))
+                    possible_recipients = group.copy()
+                    possible_recipients.pop(group.index(individual))
                     individual.survival_probability -= altruism_cost
-                    benefactor = random.choice(possible_beneficiaries)
-                    benefactor.survival_probability += altruism_benefit
-            survival_probabilities.append(individual.survival_probability)
-    #print('===========================')
-    #print(survival_probabilities)
-    #print([min(survival_probabilities), max(survival_probabilities)])
-    #print('===========================')
-    return [min(survival_probabilities), max(survival_probabilities)]
+                    recipient = random.choice(possible_recipients)
+                    recipient.survival_probability += altruism_benefit
+            #survival_probabilities.append(individual.survival_probability)
+    #return [min(survival_probabilities), max(survival_probabilities)]

@@ -48,7 +48,7 @@ class Simulation:
             self.__selection_group_size = selection_group_size
             self.__groups = []
             self.__survival_range = survival_range
-            self.__min_max_survival_probability = []
+            #self.__min_max_survival_probability = []
             self.__survival_rate_mean = 0
             self.__altruism_cost_benefit = altruism_cost_benefit
             self.__altruism_probability = altruism_probability
@@ -403,7 +403,8 @@ class Simulation:
         self.group_individuals()
         #print('SE HAN AGRUPADO LOS INDIVIDUOS')
         self.__last_population_size = len(self.__population)
-        self.__min_max_survival_probability = model.selection(self.groups)
+        model.selection(self.groups)
+        #self.__min_max_survival_probability = model.selection(self.groups)
         #print('SE HA HECHO AL MOVIDA DEL ALTRUISMO')
         self.selection_event()
         #print('SE HAN MUERTO LOS QUE TENÍAN POCA PROBABILIDAD')
