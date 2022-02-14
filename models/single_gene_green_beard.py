@@ -19,9 +19,8 @@ def selection(groups):
             if individual.phenotype[0] == 'altruistic':
                 if random.random() < altruism_probability:
                     group_wo_altruistic = group.copy()
-                    possible_recipients = group.copy()
                     group_wo_altruistic.pop(group.index(individual))
-                    possible_recipients.pop(group.index(individual))
+                    possible_recipients = group_wo_altruistic.copy()
                     #Non altruistic individuals are removed from the list
                     for possible_recipient in group_wo_altruistic[::-1]:
                         if possible_recipient.phenotype[0] != 'altruistic':
@@ -48,5 +47,3 @@ def selection(groups):
                         individual.survival_probability -= altruism_cost
                         recipient = random.choice(possible_recipients)
                         recipient.survival_probability += altruism_benefit
-
-

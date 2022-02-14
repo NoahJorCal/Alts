@@ -36,16 +36,18 @@ def plot():
             plot_info[phenotype_name[:-1]] = count_list
         #print(plot_info)
 
+    legend_population_size = 'N = '+str(population_size)
     data_y = plot_info.values()
     legend_phenotypes = plot_info.keys()
 
     plt.stackplot(generation_x, data_y, labels = legend_phenotypes)
+    plt.plot([], [], ' ', label = legend_population_size)
 
     plt.margins(0)
     plt.title('Proportion of individuals by phenotype')
     plt.xlabel('Generation')
     plt.ylabel('Proportion of individuals')
-    plt.legend(legend_phenotypes)
+    plt.legend()
 
     plt.show()
 

@@ -7,6 +7,8 @@ from itertools import product
 #Import general configuration
 general_config = ConfigParser()
 general_config.read('config.ini')
+with open('config2.ini', 'w') as f:
+    general_config.write(f, False)
 
 
 def create_simulation_results():
@@ -37,15 +39,17 @@ def create_simulation_results():
             phenotype_data.append((mean/number_of_simulations)/population_size)
         data_y.append(phenotype_data)
 
+    legend_population_size = 'N = '+str(population_size)
     legend_phenotypes = alleles_combinations_indexes.keys()
 
     plt.stackplot(generation_x, data_y, labels = legend_phenotypes)
+    plt.plot([], [], ' ', label = legend_population_size)
 
     plt.margins(0)
     plt.title('Proportion of individuals by phenotype')
     plt.xlabel('Generation')
     plt.ylabel('Proportion of individuals')
-    plt.legend(legend_phenotypes)
+    plt.legend()
 
     plt.show()
 
