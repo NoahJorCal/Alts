@@ -398,7 +398,7 @@ class Simulation:
         model.selection(self.groups)
         self.selection_event()
         self.reproduce()
-        print(self.current_generation)
+        #print(self.current_generation)
         self.__generation += 1
 
 class Individual:
