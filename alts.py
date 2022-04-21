@@ -1,24 +1,20 @@
 #!/usr/bin/python3
 
 from os import path
-from configparser import ConfigParser
 import re
 import random
 from itertools import combinations
 from itertools import product
 
-ALLELES = 0
-RANGES = 1
-INHERITANCE_DIVIDER = '(?:>|=|\s|$|^)'
+from configparser import ConfigParser
 
 #Import general configuration
 general_config = ConfigParser()
 general_config.read('config.ini')
 
 #Import model configuration
-model_name = general_config['simulation']['model']
 model_config = ConfigParser()
-model_config.read(path.join('models', model_name + '.ini'))
+model_config.read(path.join('models', general_config['simulation']['model'] + '.ini'))
 py_module = 'models.' + model_config['module']['name']
 model = __import__(py_module, fromlist = [''])
 
@@ -44,7 +40,6 @@ class Simulation:
         plot_genes):
             self.__population_size = population_size
             self.__generations = generations
-            self.__last_population_size = 0
             self.__lifespan = lifespan
             self.__emigration = emigration
             self.__inmigration = inmigration
@@ -100,7 +95,8 @@ class Simulation:
             alleles_combinations_indexes = {}
             all_alleles = []
             for gene in self.genes:
-                all_alleles.append(self.__genes_properties[gene][ALLELES])
+                #[gene][0] is equal to gene's alleles
+                all_alleles.append(self.__genes_properties[gene][0])
             all_alleles_combinations = list(product(*all_alleles))
             for i in range(len(all_alleles_combinations)):
                 allele_combination_name = ''
@@ -153,7 +149,8 @@ class Simulation:
     def dict_allele_options(self):
         alleles = {}
         for gene in self.genes:
-            alleles[gene] = self.__genes_properties[gene][ALLELES]
+            #[gene][0] is equal to gene's alleles
+            alleles[gene] = self.__genes_properties[gene][0]
         return alleles
 
     @property
@@ -172,9 +169,11 @@ class Simulation:
             alleles = []
             for i in range(2):
                 random_picker = random.random()
-                for i in range(len(self.__genes_properties[gene][RANGES])):
-                    if random_picker < self.__genes_properties[gene][RANGES][i]:
-                        alleles.append(self.__genes_properties[gene][ALLELES][i])
+                #[gene][0] is equal to gene's alleles ranges
+                for i in range(len(self.__genes_properties[gene][1])):
+                    if random_picker < self.__genes_properties[gene][1][i]:
+                        #[gene][0] is equal to gene's alleles
+                        alleles.append(self.__genes_properties[gene][0][i])
                         break
             allele_pairs.append(alleles)
         return allele_pairs
@@ -207,7 +206,6 @@ class Simulation:
             picker = random.random()
             if picker < individual.survival_probability:
                 self.__survivors_per_generation.append(individual)
-       #print(len(self.__survivors_per_generation))
         self.population = self.__survivors_per_generation
         self.__survival_rate_mean = sum(survival_probabilities)/len(survival_probabilities)
 
@@ -244,7 +242,8 @@ class Simulation:
                     for reproductor_index in range(2):
                         reproductor_allele = random.choice(reproductors[reproductor_index].genotype[i])
                         if random.random() < mutation_rate:
-                            allele_posibilities = self.__genes_properties[self.genes[i]][ALLELES].copy()
+                            #[gene][0] is equal to gene's alleles
+                            allele_posibilities = self.__genes_properties[self.genes[i]][0].copy()
                             allele_posibilities.remove(reproductor_allele)
                             reproductor_allele = random.choice(allele_posibilities)
                         gene_alleles.append(reproductor_allele)
@@ -279,7 +278,8 @@ class Simulation:
                         for reproductor_index in range(2):
                             reproductor_allele = random.choice(reproductors[reproductor_index].genotype[i])
                             if random.random() < mutation_rate:
-                                allele_posibilities = self.__genes_properties[self.genes[i]][ALLELES].copy()
+                                #[gene][0] is equal to gene's alleles
+                                allele_posibilities = self.__genes_properties[self.genes[i]][0].copy()
                                 allele_posibilities.remove(reproductor_allele)
                                 reproductor_allele = random.choice(allele_posibilities)
                             gene_alleles.append(reproductor_allele)
@@ -296,108 +296,65 @@ class Simulation:
             survivors_population.extend(new_population)
             self.__population = survivors_population
 
-    def save_generation_data(self):
+    def save_generation_data(self, summary_number):
         #Posible alleles are added in a list, if more than 1 gene is considered
         #all allele combinations will also be added
         combined_phenotypes_list = list(self.__alleles_combinations_indexes.keys())
-       #print('OOOOOOOOOO',combined_phenotypes_list)
         if self.current_generation == 0:
             summary = [0 for i in range(self.generations)]
             for i in range(len(combined_phenotypes_list)):
                 self.__simulation_summary[0].append(summary.copy())
                 self.__simulation_summary[1].append(summary.copy())
 
-    #proportions_data_y = [values[0] for values in list(plot_info.values())]
-            #List of empty slots is added for survivors and total individuals
-            #self.__simulation_summary[0] = summarya
-            #self.__simulation_summary[1] = summaryb
-           #print('SSSSSSS', self.__simulation_summary)
-            self.__survivors_per_generation = self.__population.copy()
-        cuenta = 0
-        #print(self.__population)
-        #for individual in self.__population:
-            ##List of alleles indexes
-            #match_indexes = list(range(len(combined_phenotypes_list)))
-            #for phenotype in individual.phenotype:
-                #new_match_indexes = []
-                #for index in match_indexes:
-                    #allele = combined_phenotypes_list[index]
-                    #if re.search('(?:&|^)('+phenotype+')(?:&|$)', allele):
-                        #new_match_indexes.append(index)
-                #print(new_match_indexes)
-                #match_indexes = new_match_indexes
-            #self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
-        #Code for saving survivors per generation
-       #print('Generacion numero', self.current_generation)
-        for individual in self.__survivors_per_generation:
-           #print('Cuenta', cuenta)
-            match_indexes = list(range(len(combined_phenotypes_list)))
-           #print('MATCH INDEXES',match_indexes)
-            for phenotype in individual.phenotype:
-               #print(individual.phenotype, 'AHORA CON', phenotype)
-                new_match_indexes = []
-                for index in match_indexes:
-                    allele = combined_phenotypes_list[index]
-                   #print('ALELO', allele)
-                    if re.search('(?:&|^)('+phenotype+')(?:&|$)', allele):
-                       #print('ESTA AQUI')
-                        new_match_indexes.append(index)
-                match_indexes = new_match_indexes
-               #print('HAN COINCIDIDO', match_indexes)
-           #print('SE VA A PONER AQUI', self.__simulation_summary[0])
-            self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
-           #print('Despues de añadir',self.__simulation_summary)
-            cuenta += 1
-       #print('==================================================')
-
         #Code for saving all individuals per generation
-        for individual in self.__population:
-            match_indexes = list(range(len(combined_phenotypes_list)))
-            for phenotype in individual.phenotype:
-                new_match_indexes = []
-                for index in match_indexes:
-                    combination = combined_phenotypes_list[index]
-                    if re.search('(?:&|^)('+phenotype+')(?:&|$)', combination):
-                        new_match_indexes.append(index)
-                match_indexes = new_match_indexes
-            self.__simulation_summary[1][match_indexes[0]][self.current_generation] += 1
+        if summary_number == 0:
+            for individual in self.__population:
+                match_indexes = list(range(len(combined_phenotypes_list)))
+                for phenotype in individual.phenotype:
+                    new_match_indexes = []
+                    for index in match_indexes:
+                        combination = combined_phenotypes_list[index]
+                        if re.search('(?:&|^)('+phenotype+')(?:&|$)', combination):
+                            new_match_indexes.append(index)
+                    match_indexes = new_match_indexes
+                self.__simulation_summary[1][match_indexes[0]][self.current_generation] += round(1/self.__population_size,6)
 
-    #def save_generation_data(self):
-        #combined_phenotypes_list = list(self.__alleles_combinations_indexes.keys())
-        #print(self.__alleles_combinations_indexes)
-        #if self.current_generation == 0:
-            #summary = []
-            #for i in range(len(combined_phenotypes_list)):
-                #summary.append([0]*self.generations)
-                #print(summary)
-            #self.__simulation_summary = summary
-            #print('SSSSSSS', self.__simulation_summary)
-            #self.__survivors_per_generation = self.__population.copy()
-        #cuenta = 0
-        #print('Simulacion numero', self.current_generation)
-        #for individual in self.__survivors_per_generation:
-            #print(individual.phenotype)
-            ##print('Cuenta', cuenta)
-            ##List of alleles indexes
-            #match_indexes = list(range(len(combined_phenotypes_list)))
-            #for phenotype in individual.phenotype:
-                #new_match_indexes = []
-                #for index in match_indexes:
-                    #allele = combined_phenotypes_list[index]
-                    #if re.search('(?:&|^)('+phenotype+')(?:&|$)', allele):
-                        #match_index = index
-            #self.__simulation_summary[match_index][self.current_generation] += 1
-            #print('Despues de añadir',self.__simulation_summary)
-            #cuenta += 1
+        if summary_number == 1:
+            for individual in self.__survivors_per_generation:
+                match_indexes = list(range(len(combined_phenotypes_list)))
+                for phenotype in individual.phenotype:
+                    new_match_indexes = []
+                    for index in match_indexes:
+                        allele = combined_phenotypes_list[index]
+                        if re.search('(?:&|^)('+phenotype+')(?:&|$)', allele):
+                            new_match_indexes.append(index)
+                    match_indexes = new_match_indexes
+                self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-        self.save_generation_data()
+        #start_progress('Progress bar')
+        #progress(0)
+        self.save_generation_data(0)
+        #progress(10)
+        #print('Proportions of individuals data saved')
         self.assing_individuals_survival_probability()
+        #progress(25)
+        #print('Survival probabilities assigned')
         self.group_individuals()
-        self.__last_population_size = len(self.__population)
+        #progress(40)
+        #print('Individuals grouped')
         model.selection(self.groups)
+        #progress(55)
+        #print('Altruism event finished')
         self.selection_event()
+        #progress(70)
+        #print('Individuals have been selected')
         self.reproduce()
+        #progress(85)
+        #print('Individuales have reproduced')
+        self.save_generation_data(1)
+        #progress(100)
+        #print('Survivors data saved')
         #print(self.current_generation)
         self.__generation += 1
 
@@ -448,13 +405,14 @@ class Individual:
             if self.__genotype[i][0] == self.__genotype[i][1]:
                 phenotype.append(self.__genotype[i][0])
             else:
+                inheritance_divider = '(?:>|=|\s|$|^)'
                 characters_between_alleles = re.search(
-                    f'{INHERITANCE_DIVIDER}{self.__genotype[i][0]}{INHERITANCE_DIVIDER}(.*){INHERITANCE_DIVIDER}{self.__genotype[i][1]}{INHERITANCE_DIVIDER}',
+                    f'{inheritance_divider}{self.__genotype[i][0]}{inheritance_divider}(.*){inheritance_divider}{self.__genotype[i][1]}{inheritance_divider}',
                     model_config[gene]['alleles'])
                 reverse = False
                 if not characters_between_alleles or characters_between_alleles == None:
                     characters_between_alleles = re.search(
-                        f'{INHERITANCE_DIVIDER}{self.__genotype[i][1]}{INHERITANCE_DIVIDER}(.*){INHERITANCE_DIVIDER}{self.__genotype[i][0]}{INHERITANCE_DIVIDER}',
+                        f'{inheritance_divider}{self.__genotype[i][1]}{inheritance_divider}(.*){inheritance_divider}{self.__genotype[i][0]}{inheritance_divider}',
                         model_config[gene]['alleles'])
                     reverse = True
                 if '>' in characters_between_alleles.group(1):
@@ -464,7 +422,8 @@ class Individual:
                         phenotype.append(self.__genotype[i][0])
                 else:
                     chosen_phenotype = self.__genotype[i][0]+'_'+self.__genotype[i][1]
-                    if chosen_phenotype in self.__simulation.genes_properties[gene][ALLELES]:
+                    #[gene][0] is equal to gene's alleles
+                    if chosen_phenotype in self.__simulation.genes_properties[gene][0]:
                         phenotype.append(chosen_phenotype)
                     else:
                         phenotype.append(self.__genotype[i][1]+'_'+self.__genotype[i][0])
