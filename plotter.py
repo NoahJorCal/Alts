@@ -16,10 +16,9 @@ def plot():
     population_size = int(general_config['population']['size'])
     generation_x = range(int(general_config['simulation']['generations'])+1)
 
-
-
     with open(vars(args)['input'], 'rb') as config_dictionary_file:
         simulations_summary = pickle.load(config_dictionary_file)
+    print(simulations_summary)
     dict_phenotypes_combinations_indexes = simulations_summary[0]
     dict_phenotype_options = simulations_summary[1]
     survivors_means = simulations_summary[4]
