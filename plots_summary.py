@@ -70,6 +70,37 @@ def create_simulation_results():
     survivors_simulations_summary = []
     all_simulations_summary = []
     simulation_duration = 0
+<<<<<<< HEAD
+=======
+
+    for i in range(int(number_of_simulations/args.cpu)):
+        workers = [None] * args.cpu
+        returns = [None] * args.cpu
+        for worker_index in range(args.cpu):
+            worker = threading.Thread(target = run_simulation, args = (
+                generation_x,
+                simulation_count,
+                returns,
+                worker_index,
+                survivors_simulations_summary,
+                total_simulations_summary,
+                all_simulations_summary,
+                mean_simulation_duration))
+
+            workers[worker_index] = worker
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        for worker_return in returns:
+            simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration = worker_return
+
+            survivors_simulations_summary.append(simulation_summary[0])
+            total_simulations_summary.append(simulation_summary[1])
+            all_simulations_summary.append(single_simulations_summary)
+
+            mean_simulation_duration += simulation_duration
+>>>>>>> fe8514529e47aea327add03af3c228bbc5d750eb
 
     if args.cpu > os.cpu_count():
         raise CPUError()
