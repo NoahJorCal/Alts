@@ -4,10 +4,18 @@ import threading
 import argparse
 import sys
 import pickle
+import os
 
 from configparser import ConfigParser
 
 from alts import alts_main
+
+class CPUError(Exception):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        return f'Set {args.cpu} cpus when only {os.cpu_count()} are available'
 
 #Import general configuration
 general_config = ConfigParser()
@@ -16,14 +24,39 @@ general_config.read('config.ini')
 start_time = perf_counter()
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-o', '--outfile', default = 'result.txt', help = 'output file where data will be stored')
+parser.add_argument('-o', '--outfile', default = 'result.txt', help = 'Output file where data will be stored')
+parser.add_argument('-c', '--cpu', default = 1, type = int, help = 'Number of simultanious workers')
 args = parser.parse_args()
 
-def run_simulation(generation_x, survivors_simulations_summary, total_simulations_summary):
+
+def run_simulation(
+        generation_x,
+        simulation_count,
+        returns,
+        worker_index,
+        survivors_simulations_summary,
+        total_simulations_summary,
+        all_simulations_summary,
+        mean_simulation_duration):
+
+    start_counter = perf_counter()
     simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options = alts_main()
-    survivors_simulations_summary.append(simulation_summary[0])
-    total_simulations_summary.append(simulation_summary[1])
-    return simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options
+
+    phenotypes = list(dict_phenotypes_combinations_indexes.keys())
+    selfish_indexes = []
+    single_simulations_summary = [0 for generation in generation_x]
+    for phentoype_index in range(len(phenotypes)):
+        if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phentoype_index]):
+            selfish_indexes.append(phentoype_index)
+    for phenotype in selfish_indexes:
+        single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
+
+    simulation_duration = perf_counter() - start_counter
+    print(f'\033[K\033[FSimulation number {simulation_count} run in {round(simulation_duration, 2)} seconds. Running simulation {simulation_count + 1}...')
+
+    simulation_count += 1
+
+    returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration)
 
 def create_simulation_results():
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
@@ -37,26 +70,46 @@ def create_simulation_results():
     survivors_simulations_summary = []
     all_simulations_summary = []
     simulation_duration = 0
-    for i in range(number_of_simulations):
-        start_counter = perf_counter()
-        simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options = run_simulation(generation_x, survivors_simulations_summary, total_simulations_summary)
 
-        phenotypes = list(dict_phenotypes_combinations_indexes.keys())
-        selfish_indexes = []
-        single_simulations_summary = [0 for generation in generation_x]
-        for phentoype_index in range(len(phenotypes)):
-            if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phentoype_index]):
-                selfish_indexes.append(phentoype_index)
-        for phenotype in selfish_indexes:
-            single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
-        all_simulations_summary.append(single_simulations_summary)
+    if args.cpu > os.cpu_count():
+        raise CPUError()
 
-        print(f'\033[K\033[FSimulation number {simulation_count} run in {round(perf_counter() - start_counter, 2)} seconds. Running simulation {simulation_count + 1}...')
-        simulation_count += 1
-        simulation_duration += perf_counter() - start_counter
-        mean_simulation_duration += simulation_duration
-        start_counter = perf_counter()
+    for i in range(int(number_of_simulations/args.cpu)+1):
+        workers = [None] * args.cpu
+        returns = [None] * args.cpu
+        for worker_index in range(args.cpu):
+            worker = threading.Thread(target = run_simulation, args = (
+                generation_x,
+                simulation_count,
+                returns,
+                worker_index,
+                survivors_simulations_summary,
+                total_simulations_summary,
+                all_simulations_summary,
+                mean_simulation_duration))
 
+            workers[worker_index] = worker
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        for worker_return in returns:
+            simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration = worker_return
+
+            survivors_simulations_summary.append(simulation_summary[0])
+            total_simulations_summary.append(simulation_summary[1])
+            all_simulations_summary.append(single_simulations_summary)
+
+            mean_simulation_duration += simulation_duration
+        #print('ronda')
+
+    #print(number_of_simulations)
+    number_of_simulations = (int(number_of_simulations/args.cpu)+1)*args.cpu
+    #print(number_of_simulations)
+
+    #print(survivors_simulations_summary)
+    #print(total_simulations_summary)
+    #print(all_simulations_summary)
     combined_phenotypes = list(dict_phenotypes_combinations_indexes.keys())
     survivors_means = []
     proportions_means = []
@@ -81,5 +134,5 @@ def create_simulation_results():
 
     return dict_phenotypes_combinations_indexes, dict_phenotype_options, survivors_simulations_summary, total_simulations_summary, survivors_means, proportions_means, all_simulations_summary
 
-with open(vars(args)['outfile'], 'wb') as config_dictionary_file:
+with open(args.outfile, 'wb') as config_dictionary_file:
   pickle.dump(create_simulation_results(), config_dictionary_file)
