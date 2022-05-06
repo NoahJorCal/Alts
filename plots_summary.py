@@ -31,7 +31,7 @@ args = parser.parse_args()
 
 def run_simulation(
         generation_x,
-        simulation_count,
+        round_count,
         returns,
         worker_index,
         survivors_simulations_summary,
@@ -52,17 +52,15 @@ def run_simulation(
         single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
 
     simulation_duration = perf_counter() - start_counter
-    print(f'\033[K\033[FSimulation number {simulation_count} run in {round(simulation_duration, 2)} seconds. Running simulation {simulation_count + 1}...')
-
-    simulation_count += 1
+    print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds. Running round {round_count + 1} with {args.cpu} simulations...')
 
     returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration)
 
 def create_simulation_results():
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
     generation_x = range(int(general_config['simulation']['generations'])+1)
-    simulation_count = 0
-    print('Running first simulation...')
+    round_count = 0
+    print(f'Running first round of {args.cpu} simulations...')
 
     mean_simulation_duration = 0
     #The given number of simulations are run and their data is saved
@@ -70,34 +68,6 @@ def create_simulation_results():
     survivors_simulations_summary = []
     all_simulations_summary = []
     simulation_duration = 0
-
-    for i in range(int(number_of_simulations/args.cpu)):
-        workers = [None] * args.cpu
-        returns = [None] * args.cpu
-        for worker_index in range(args.cpu):
-            worker = threading.Thread(target = run_simulation, args = (
-                generation_x,
-                simulation_count,
-                returns,
-                worker_index,
-                survivors_simulations_summary,
-                total_simulations_summary,
-                all_simulations_summary,
-                mean_simulation_duration))
-
-            workers[worker_index] = worker
-            worker.start()
-        for worker in workers:
-            worker.join()
-
-        for worker_return in returns:
-            simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration = worker_return
-
-            survivors_simulations_summary.append(simulation_summary[0])
-            total_simulations_summary.append(simulation_summary[1])
-            all_simulations_summary.append(single_simulations_summary)
-
-            mean_simulation_duration += simulation_duration
 
     if args.cpu > os.cpu_count():
         raise CPUError()
@@ -108,7 +78,7 @@ def create_simulation_results():
         for worker_index in range(args.cpu):
             worker = threading.Thread(target = run_simulation, args = (
                 generation_x,
-                simulation_count,
+                round_count,
                 returns,
                 worker_index,
                 survivors_simulations_summary,
@@ -129,7 +99,8 @@ def create_simulation_results():
             all_simulations_summary.append(single_simulations_summary)
 
             mean_simulation_duration += simulation_duration
-        #print('ronda')
+
+        round_count += 1
 
     #print(number_of_simulations)
     number_of_simulations = (int(number_of_simulations/args.cpu)+1)*args.cpu
