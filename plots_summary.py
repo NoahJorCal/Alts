@@ -70,8 +70,6 @@ def create_simulation_results():
     survivors_simulations_summary = []
     all_simulations_summary = []
     simulation_duration = 0
-<<<<<<< HEAD
-=======
 
     for i in range(int(number_of_simulations/args.cpu)):
         workers = [None] * args.cpu
@@ -100,7 +98,6 @@ def create_simulation_results():
             all_simulations_summary.append(single_simulations_summary)
 
             mean_simulation_duration += simulation_duration
->>>>>>> fe8514529e47aea327add03af3c228bbc5d750eb
 
     if args.cpu > os.cpu_count():
         raise CPUError()

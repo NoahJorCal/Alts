@@ -18,11 +18,8 @@ def plot():
 
     with open(vars(args)['input'], 'rb') as config_dictionary_file:
         simulations_summary = pickle.load(config_dictionary_file)
-<<<<<<< HEAD
     #print(simulations_summary)
-=======
     print(simulations_summary)
->>>>>>> fe8514529e47aea327add03af3c228bbc5d750eb
     dict_phenotypes_combinations_indexes = simulations_summary[0]
     dict_phenotype_options = simulations_summary[1]
     survivors_means = simulations_summary[4]
