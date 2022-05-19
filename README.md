@@ -31,8 +31,7 @@ The workflow followed by the simulation is the following:
 7. The individuals whose age have reached the lifespan die.
 8. The data of the generation is saved and a new generation starts.
 
-<img src="https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png" alt="Alts' workflow" width="100"/>
-![Esquema](https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png | width=100px)
+<img src="https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png" alt="Alts' workflow" width="400"/>
 
 
 
