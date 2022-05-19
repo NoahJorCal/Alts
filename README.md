@@ -2,23 +2,23 @@
 An altruism-based simulation
 
 Alts is a simulation that creates a population of individuals following a series of configurable parameters found in the .ini files. It's developed to work with altruism but it can be used for any trait just by coding the genetic model for the desired characteristic. The altruism models can be found in the folder models. The parameters that can be modified are:
-· Population size
-· Emigration rate
-· Immigration rate
-· Immigrants’ phenotype
-· Lifespan
-· Reproduction
-· Size of isolated groups
-· Survival probability range
-· Altruism probability
-· Altruism cost
-· Altruism benefit
-· Generations per simulation
-· Number of simulations
-· Genetic model
-· Inheritance pattern
-· Initial frequencies of each gene
-· Mutation rate of each gene
+Population size
+* Emigration rate
+* Immigration rate
+* Immigrants’ phenotype
+* Lifespan
+* Reproduction
+* Size of isolated groups
+* Survival probability range
+* Altruism probability
+* Altruism cost
+* Altruism benefit
+* Generations per simulation
+* Number of simulations
+* Genetic model
+* Inheritance pattern
+* Initial frequencies of each gene
+* Mutation rate of each gene
 These parameters allow population to be quite realistic and therefore to create realistic results adapting the parameters to fit the desired population.
 
 The workflow followed by the simulation is the following:
