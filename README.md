@@ -30,7 +30,8 @@ The workflow followed by the simulation is the following:
 6. The survivors reproduce until the population size reaches the stablished number.
 7. The individuals whose age have reached the lifespan die.
 8. The data of the generation is saved and a new generation starts.
-![Esquema](https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png)
+
+![Esquema](https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png | width = 100)
 
 
 
