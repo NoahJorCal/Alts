@@ -38,7 +38,7 @@ The workflow followed by the simulation is the following:
 ## Instalation ##
 The depedencies needed for this simulation are:
 * configparser
-* matplotlib (only fow plotting)
+* matplotlib (only for plotting)
 
 
 
