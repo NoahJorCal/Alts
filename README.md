@@ -36,7 +36,7 @@ The workflow followed by the simulation is the following:
 <img src="https://user-images.githubusercontent.com/96572489/169368620-0119429d-8488-45b5-b090-b92f7a67556b.png" alt="Alts' workflow" width="500"/>
 
 ## Instalation ##
-The depedencies needed for this simulation are:
+This simulation works with Python3. The depedencies needed for this simulation are:
 * configparser
 * matplotlib (only for plotting)
 
