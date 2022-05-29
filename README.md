@@ -24,14 +24,15 @@ Population size
 These parameters allow population to be quite realistic and therefore to create realistic results adapting the parameters to fit the desired population.
 
 The workflow followed by the simulation is the following:
-1. Each individual is assigned a random survival probability from a pre-established range.
-2. Individuals are  grouped into random isolated groups at the indicated group size.
-3. The altruistic individuals have a probability of sacrificing part of their survival probability to increase that of another, the recipient will be altruistic or selfish depending on the selected model.
-4. The selection event occurs, which represents any circumstance that may face the individuals, such as foraging or encounters with predators.
-5. The death or survival of an individuals is calculated based on the survival probability.
-6. The survivors reproduce until the population size reaches the stablished number.
-7. The individuals whose age have reached the lifespan die.
-8. The data of the generation is saved and a new generation starts.
+1. Every generations starts with a fixed size population.
+2. Each individual is assigned a random survival probability from a pre-established range.
+3. Individuals are  grouped into random isolated groups at the indicated group size.
+4. The altruistic individuals have a probability of sacrificing part of their survival probability to increase that of another, the recipient will be altruistic or selfish depending on the selected model.
+5. The selection event occurs, which represents any circumstance that may face the individuals, such as foraging or encounters with predators.
+6. The death or survival of an individuals is calculated based on the survival probability.
+7. The survivors reproduce until the population size reaches the stablished number.
+8. The individuals whose age have reached the lifespan die.
+9. The data of the generation is saved and a new generation starts.
 
 <img src="https://user-images.githubusercontent.com/96572489/170871211-d75bca92-f345-4022-9f7d-964af75999aa.png" alt="Alts' workflow" width="500"/>
 
