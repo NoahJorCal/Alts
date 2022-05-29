@@ -33,7 +33,7 @@ The workflow followed by the simulation is the following:
 7. The individuals whose age have reached the lifespan die.
 8. The data of the generation is saved and a new generation starts.
 
-<img src="https://user-images.githubusercontent.com/96572489/170871177-d65a2164-2a6c-43da-9db8-5250251d5e98.png" alt="Alts' workflow" width="500"/>
+<img src="https://user-images.githubusercontent.com/96572489/170871211-d75bca92-f345-4022-9f7d-964af75999aa.png" alt="Alts' workflow" width="500"/>
 
 ## Instalation ##
 This simulation works with Python3. The depedencies needed for this simulation are:
