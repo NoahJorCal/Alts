@@ -63,6 +63,7 @@ pip install matplotlib
 ## Use
 ### Configure
 The general configuration can be found in `config.ini` file.
+
 The gene and model configuration can be found in the `.ini` file in the model folder
 
 ### Run
