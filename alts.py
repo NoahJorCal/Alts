@@ -24,7 +24,7 @@ general_config.read('config.ini')
 start_time = perf_counter()
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-o', '--outfile', default = 'result.txt', help = 'Output file where data will be stored')
+parser.add_argument('-o', '--outfile', default = 'result.alt', help = 'Output file where data will be stored')
 parser.add_argument('-c', '--cpu', default = 1, type = int, help = 'Number of simultanious workers')
 #parser.add_argument('-p', '--plot', default = True, type = bool, help = 'If plot will be produced')
 args = parser.parse_args()
@@ -45,6 +45,7 @@ def run_simulation(
 
     phenotypes = list(dict_phenotypes_combinations_indexes.keys())
     selfish_indexes = []
+    # Only selfish individuals
     single_simulations_summary = [0 for generation in generation_x]
     for phentoype_index in range(len(phenotypes)):
         if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phentoype_index]):
@@ -60,6 +61,7 @@ def run_simulation(
 def create_simulation_results():
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
     generation_x = range(int(general_config['simulation']['generations'])+1)
+    population_size = int(general_config['population']['size'])
     round_count = 0
     print(f'Running first round of {args.cpu} simulations...')
 
@@ -73,7 +75,7 @@ def create_simulation_results():
     if args.cpu > os.cpu_count():
         raise CPUError()
 
-    for i in range(int(number_of_simulations/args.cpu+0.5)):
+    for i in range(int(number_of_simulations/args.cpu + 0.5)):
         workers = [None] * args.cpu
         returns = [None] * args.cpu
         for worker_index in range(args.cpu):
@@ -128,7 +130,7 @@ def create_simulation_results():
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
     print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and {round((perf_counter() - start_time)/60,2)} minutes in total')
 
-    return dict_phenotypes_combinations_indexes, dict_phenotype_options, survivors_simulations_summary, total_simulations_summary, survivors_means, proportions_means, all_simulations_summary
+    return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options, survivors_simulations_summary, total_simulations_summary, survivors_means, proportions_means, all_simulations_summary
 
 with open(args.outfile, 'wb') as config_dictionary_file:
   pickle.dump(create_simulation_results(), config_dictionary_file)

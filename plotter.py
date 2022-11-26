@@ -2,36 +2,32 @@ import re
 import pickle
 import argparse
 
-from configparser import ConfigParser
 from matplotlib import pyplot as plt
 
-#Import general configuration
-general_config = ConfigParser()
-general_config.read('config.ini')
-
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-i', '--input', default = 'result.txt', help = 'input file where data will be extracted')
+parser.add_argument('-i', '--input', default = 'result.alt', help = 'input file where data will be extracted')
 args = parser.parse_args()
 
 def simulation_plot():
-    population_size = int(general_config['population']['size'])
-    generation_x = range(int(general_config['simulation']['generations'])+1)
-
     with open(vars(args)['input'], 'rb') as config_dictionary_file:
         simulations_summary = pickle.load(config_dictionary_file)
-    dict_phenotypes_combinations_indexes = simulations_summary[0]
-    dict_phenotype_options = simulations_summary[1]
-    survivors_means = simulations_summary[4]
-    print(dict_phenotypes_combinations_indexes)
 
-    if len(simulations_summary[5]) == 4:
-        proportions_means = [simulations_summary[5][2], simulations_summary[5][3], simulations_summary[5][0], simulations_summary[5][1]]
+    population_size = simulations_summary[0]
+    generation_x = range(len(simulations_summary[3][0][0]))
+
+    dict_phenotypes_combinations_indexes = simulations_summary[1]
+    dict_phenotype_options = simulations_summary[2]
+    survivors_means = simulations_summary[5]
+    #print(dict_phenotypes_combinations_indexes)
+
+    if len(simulations_summary[6]) == 4:
+        proportions_means = [simulations_summary[6][2], simulations_summary[6][3], simulations_summary[6][0], simulations_summary[6][1]]
     else:
-        proportions_means = simulations_summary[5]
+        proportions_means = simulations_summary[6]
 
-    all_simulations_summary = simulations_summary[6]
+    all_simulations_summary = simulations_summary[7]
 
-    if len(simulations_summary[5]) == 4:
+    if len(simulations_summary[6]) == 4:
         combined_phenotypes = list(dict_phenotypes_combinations_indexes.keys())
         legend_phenotypes = [combined_phenotypes[2], combined_phenotypes[3], combined_phenotypes[0], combined_phenotypes[1]]
     else:
@@ -39,7 +35,7 @@ def simulation_plot():
 
     legend_population_size = 'N = '+str(population_size)
     proportions_plot = plt.figure(1)
-    if len(simulations_summary[5]) == 4:
+    if len(simulations_summary[6]) == 4:
         color_map = ["#e74848ff", "#32be65ff", "#51bfe8ff", "#ee833c"]
         plt.stackplot(generation_x, proportions_means, labels = legend_phenotypes, colors = color_map)
     else:

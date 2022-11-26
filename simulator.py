@@ -59,9 +59,8 @@ class Simulation:
             self.__survivors_per_generation = []
             self.__altruism_cost_benefit = altruism_cost_benefit
             self.__altruism_probability = altruism_probability
-            #First list of the summary is survivors per generation and second the total
+            # First list of the summary is survivors per generation and second the total
             self.__simulation_summary = [[],[]]
-            #self.__plot_genes = plot_genes
             self.__alleles_combinations_indexes = []
 
             for gene in model_config.sections():
@@ -342,13 +341,13 @@ class Simulation:
             survivors_population.extend(new_population)
             self.__population = survivors_population
 
-    def save_generation_data(self, summary_number):
-        #Posible alleles are added in a list, if more than 1 gene is considered
-        #all allele combinations will also be added
+    def save_generation_data(self, simulation_state):
+        ''' Posible alleles are added in a list, if more than 1 gene is
+        considered all allele combinations will also be added '''
         combined_phenotypes_list = list(self.__alleles_combinations_indexes.keys())
-        #print(combined_phenotypes_list)
-        #Code for saving all individuals per generation
-        if summary_number == 0:
+        # Proportion of individuals per phenotype before selection
+        if simulation_state == 0:
+            # The simulation summary object is initialized
             if self.current_generation == 0:
                 summary = [0 for i in range(self.generations)]
                 for i in range(len(combined_phenotypes_list)):
@@ -365,8 +364,8 @@ class Simulation:
                     match_indexes = new_match_indexes
                 self.__simulation_summary[1][match_indexes[0]][self.current_generation] += 1/self.__population_size
 
-
-        if summary_number == 1:
+        # Survivors per generation
+        if simulation_state == 1:
             for individual in self.__survivors_per_generation:
                 match_indexes = list(range(len(combined_phenotypes_list)))
                 for phenotype in individual.phenotype:
@@ -379,37 +378,34 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-            #start_progress('Progress bar')
-            #progress(0)
-            self.save_generation_data(0)
-            #progress(10)
-            #print('Proportions of individuals data saved')
-            self.assing_individuals_survival_probability()
-            #progress(25)
-            #print('Survival probabilities assigned')
-            self.group_individuals()
-            #progress(40)
-            #print('Individuals grouped')
-            model.selection(self.groups)
-            #progress(55)
-            #print('Altruism event finished')
-            self.selection_event()
-            #progress(70)
-            #print('Individuals have been selected')
-            self.reproduce()
-            #for individual in self.__population:
-                #print(individual.phenotype)
 
-            #print([i.genotype for i in self.__population])
-            #progress(85)
-            #print('Individuales have reproduced')
-            self.save_generation_data(1)
-            #print(self.__simulation_summary[1])
-            #progress(100)
-            #print('Survivors data saved')
-            #print(self.current_generation)
-            #print(self.__simulation_summary)
-            self.__generation += 1
+        self.save_generation_data(0)
+        self.assing_individuals_survival_probability()
+        #progress(25)
+        #print('Survival probabilities assigned')
+        self.group_individuals()
+        #progress(40)
+        #print('Individuals grouped')
+        model.selection(self.groups)
+        #progress(55)
+        #print('Altruism event finished')
+        self.selection_event()
+        #progress(70)
+        #print('Individuals have been selected')
+        self.reproduce()
+        #for individual in self.__population:
+            #print(individual.phenotype)
+
+        #print([i.genotype for i in self.__population])
+        #progress(85)
+        #print('Individuales have reproduced')
+        self.save_generation_data(1)
+        #print(self.__simulation_summary[1])
+        #progress(100)
+        #print('Survivors data saved')
+        #print(self.current_generation)
+        #print(self.__simulation_summary)
+        self.__generation += 1
 
 class Individual:
     def __init__(self, simulation):
@@ -522,6 +518,7 @@ def simulator_main():
         #print('hdp')
         print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
 
+    # Rounds the proportions of individuals per phenotype
     for phenotype_index in range(len(p.simulation_summary[1])):
         for generation_index in range(len(p.simulation_summary[1][phenotype_index])):
             p.simulation_summary[1][phenotype_index][generation_index] = round(p.simulation_summary[1][phenotype_index][generation_index], 5)
