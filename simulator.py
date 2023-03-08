@@ -8,19 +8,21 @@ from itertools import product
 
 from configparser import ConfigParser
 
-#Import general configuration
+# Import general configuration
 general_config = ConfigParser()
 general_config.read('config.ini')
 
-#Import model configuration
+# Import model configuration
 model_config = ConfigParser()
 model_config.read(path.join('models', general_config['simulation']['model'] + '.ini'))
 py_module = 'models.' + model_config['module']['name']
-model = __import__(py_module, fromlist = [''])
+model = __import__(py_module, fromlist=[''])
+
 
 def delete_random_elems(input_list, n):
     to_delete = set(random.sample(range(len(input_list)), n))
-    return [x for i,x in enumerate(input_list) if not i in to_delete]
+    return [x for i, x in enumerate(input_list) if i not in to_delete]
+
 
 class Simulation:
     def __init__(
@@ -56,7 +58,7 @@ class Simulation:
             self.__altruism_cost_benefit = altruism_cost_benefit
             self.__altruism_probability = altruism_probability
             ''' First list of the summary is survivors per generation and second the number of individuals
-            at the beggining of a generation '''
+            at the beginning of a generation '''
             self.__simulation_summary = [[],[]]
             self.__alleles_combinations_indexes = []
 
@@ -69,7 +71,7 @@ class Simulation:
                     allele_options = re.split('\s*>\s*|\s*=\s*', model_config[gene]['alleles'])
                     noncodominant_allele_options = allele_options.copy()
                     # Saving codominant phenotypes for each gene
-                    codominant_alleles_raw = re.findall('[\w=]*=[\w=]*', model_config[gene]['alleles'].replace(' ',''))
+                    codominant_alleles_raw = re.findall('[\w=]*=[\w=]*', model_config[gene]['alleles'].replace(' ', ''))
                     for element in codominant_alleles_raw:
                         for combination in combinations(element.split('='), 2):
                             codominant_phenotype = combination[0]+'_'+combination[1]
@@ -98,7 +100,7 @@ class Simulation:
             alleles_combinations_indexes = {}
             all_alleles = []
             for gene in self.genes:
-                #[gene][0] are the gene's alleles
+                # [gene][0] are the gene's alleles
                 all_alleles.append(self.__genes_properties[gene][0])
             all_alleles_combinations = list(product(*all_alleles))
             for i in range(len(all_alleles_combinations)):
@@ -159,7 +161,7 @@ class Simulation:
     def dict_allele_options(self):
         alleles = {}
         for gene in self.genes:
-            #[gene][0] is equal to gene's alleles
+            # [gene][0] is equal to gene's alleles
             alleles[gene] = self.__genes_properties[gene][0]
         return alleles
 
@@ -215,7 +217,7 @@ class Simulation:
             self.__groups = groups
     
     # Random survival probability based on the given range
-    def assing_individuals_survival_probability(self):
+    def assign_individuals_survival_probability(self):
         for individual in self.__population:
             individual.survival_probability = random.uniform(self.__survival_range[0], self.__survival_range[1])
 
@@ -248,6 +250,7 @@ class Simulation:
             immigrants = min(round(self.__population_size * self.__immigration), missing_population)
             for i in range(immigrants):
                 new_population.append(self.generate_immigrant())
+
         # Panmixia
         if self.__reproduction == 0:
             while len(new_population) < missing_population:
@@ -262,14 +265,15 @@ class Simulation:
                         reproducer_allele = random.choice(reproducers[reproducer_index].genotype[i])
                         # If a mutations occurs, chose from random another allele of the gene
                         if random.random() < mutation_rate:
-                            allele_posibilities = self.__genes_properties[self.genes[i]][0].copy()
-                            allele_posibilities.remove(reproducer_allele)
-                            reproducer_allele = random.choice(allele_posibilities)
+                            allele_possibilities = self.__genes_properties[self.genes[i]][0].copy()
+                            allele_possibilities.remove(reproducer_allele)
+                            reproducer_allele = random.choice(allele_possibilities)
                         gene_alleles.append(reproducer_allele)
                     new_individual_genotype.append(gene_alleles)
                 new_individual = Individual(self)
                 new_individual.genotype = new_individual_genotype
                 new_population.append(new_individual)
+
         else:
             if self.__reproduction > len(self.__population[0].phenotype):
                 raise Exception('Number of identical alleles needed for reproduction cannot exceed number of genes')
@@ -297,16 +301,17 @@ class Simulation:
                         for reproducer_index in range(2):
                             reproducer_allele = random.choice(reproducers[reproducer_index].genotype[i])
                             if random.random() < mutation_rate:
-                                #[gene][0] is equal to gene's alleles
-                                allele_posibilities = self.__genes_properties[self.genes[i]][0].copy()
-                                allele_posibilities.remove(reproducer_allele)
-                                reproducer_allele = random.choice(allele_posibilities)
+                                # [gene][0] is equal to gene's alleles
+                                allele_possibilities = self.__genes_properties[self.genes[i]][0].copy()
+                                allele_possibilities.remove(reproducer_allele)
+                                reproducer_allele = random.choice(allele_possibilities)
                             gene_alleles.append(reproducer_allele)
                         new_individual_genotype.append(gene_alleles)
                     new_individual = Individual(self)
                     new_individual.genotype = new_individual_genotype
                     new_population.append(new_individual)
                 count += 1
+
         # Replace all the previous population if the lifespan is 1
         if self.__lifespan <= 1:
             self.__population = new_population
@@ -318,16 +323,9 @@ class Simulation:
             survivors_population.extend(new_population)
             self.__population = survivors_population
 
-        # temp_dic = {"['altruistic']": 0,
-        #             "['selfish']": 0}
-        # for ind in self.__population:
-        #     temp_dic[str(ind.phenotype)] += 1
-        # print(temp_dic)
-
-
     def save_generation_data(self, simulation_state):
-        ''' Posible alleles are added in a list, if more than 1 gene is
-        considered all allele combinations will also be added '''
+        ''' Possible alleles are added in a list, if more than 1 gene is considered all allele combinations
+        will also be added '''
         combined_phenotypes_list = list(self.__alleles_combinations_indexes.keys())
         # Proportion of individuals per phenotype before selection event
         if simulation_state == 0:
@@ -363,10 +361,9 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-        print(self.__generation)
         # Data at the start of the generation
         self.save_generation_data(0)
-        self.assing_individuals_survival_probability()
+        self.assign_individuals_survival_probability()
         self.group_individuals()
         model.selection(self.groups)
         self.selection_event()
@@ -374,6 +371,7 @@ class Simulation:
         # Data after selection event
         self.save_generation_data(1)
         self.__generation += 1
+
 
 class Individual:
     def __init__(self, simulation):
@@ -413,12 +411,12 @@ class Individual:
     def survival_probability(self, value):
         self.__survival_probability = value
 
-    #Calculates the phenotype considering the genotype and inheritance pattern
+    # Calculates the phenotype considering the genotype and inheritance pattern
     def choose_phenotype(self):
         phenotype = []
         for i in range(len(self.__simulation.genes)):
             gene = self.__simulation.genes[i]
-            #If both alleles are the same the phenotype is that allele
+            # If both alleles are the same the phenotype is that allele
             if self.__genotype[i][0] == self.__genotype[i][1]:
                 phenotype.append(self.__genotype[i][0])
             else:
@@ -439,7 +437,7 @@ class Individual:
                         phenotype.append(self.__genotype[i][0])
                 else:
                     chosen_phenotype = self.__genotype[i][0]+'_'+self.__genotype[i][1]
-                    #[gene][0] is equal to gene's alleles
+                    # [gene][0] is equal to gene's alleles
                     if chosen_phenotype in self.__simulation.genes_properties[gene][0]:
                         phenotype.append(chosen_phenotype)
                     else:
@@ -448,6 +446,7 @@ class Individual:
 
     def age_individual(self):
         self.__age += 1
+
 
 def simulator_main():
     generations = int(general_config['simulation']['generations'])+1
@@ -477,7 +476,7 @@ def simulator_main():
     for i in range(generations):
         simulation.pass_generation()
         progress = cols*i/generations
-        # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
+        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):

@@ -38,7 +38,10 @@ The workflow followed by the simulation is the following:
 
 _simulator.py_ is the main script that runs each simulation. The simulation is initialized and populated with the initial individuals and then the workflow described above is repeated for each generation.   
 _alts.py_ manages the multithreading when running the program with several simulations at once. The mean results of all the simulations are saved and serialized.  
-_plotter.py_
+_plotter.py_ takes the results from _alts.py_ and generates three plots:
+* Stackplot of the proportion of each phenotype at the beginning of the simulation
+* Line plot of survivors per generation by phenotype
+* Line plot of the proportion of selfish individuals in every simulation
 
 ## Installation
 ### Linux (Debian-based)

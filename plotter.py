@@ -6,7 +6,9 @@ import argparse
 from matplotlib import pyplot as plt
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-i', '--input', default = 'result.alt', help = 'input file where data will be extracted')
+parser.add_argument('-i', '--input', default = 'result.alt', help = 'Input file where data will be extracted')
+parser.add_argument('-s', '--show', action='store_true', help = 'Use -s or --show to show the plots, they will be saved'
+                                                                ' as .png files either way')
 args = parser.parse_args()
 
 def simulation_plot():
@@ -57,6 +59,8 @@ def simulation_plot():
     plt.ylabel('Proportion of individuals')
     plt.legend()
 
+    plt.savefig('proportions_plot.png')
+
     # Total number of survivors is calculated to be added to the plot
     total_survivors = []
     for generation in generation_x:
@@ -79,6 +83,8 @@ def simulation_plot():
     plt.ylabel('Number of individuals')
     plt.legend(loc = 'upper right')
 
+    plt.savefig('survivors_plot.png')
+
     # Line plot of the proportion of selfish individuals in every simulation
     individual_survivors_plot = plt.figure(3)
     for simulation in all_simulations_summary:
@@ -89,6 +95,10 @@ def simulation_plot():
     plt.xlabel('Generation')
     plt.ylabel('Proportion of individuals')
 
-    plt.show()
+    plt.savefig('individual_survivors_plot.png')
+
+    if args.show:
+        plt.show()
+
 
 simulation_plot()

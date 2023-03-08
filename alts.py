@@ -10,7 +10,6 @@ from time import perf_counter
 
 from simulator import simulator_main
 
-
 class CPUError(Exception):
     def __init__(self):
         super().__init__()
@@ -33,11 +32,7 @@ def run_simulation(
         generation_x,
         round_count,
         returns,
-        worker_index,
-        survivors_simulations_summary,
-        total_simulations_summary,
-        all_simulations_summary,
-        mean_simulation_duration):
+        worker_index):
 
     start_counter = perf_counter()
     simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options = simulator_main()
@@ -54,7 +49,7 @@ def run_simulation(
         single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
 
     simulation_duration = perf_counter() - start_counter
-    # print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds. Running round {round_count + 1} with {args.cpu} simulations...')
+    print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds. Running round {round_count + 1} with {args.cpu} simulations...')
 
     returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration)
 
@@ -63,13 +58,12 @@ def create_simulation_results():
     generation_x = range(int(general_config['simulation']['generations'])+1)
     population_size = int(general_config['population']['size'])
     round_count = 0
-    # print(f'Running first round of {args.cpu} simulations...')
+    print(f'Running first round of {args.cpu} simulations...')
 
     mean_simulation_duration = 0
     total_simulations_summary = []
     survivors_simulations_summary = []
     all_simulations_summary = []
-    simulation_duration = 0
 
     if args.cpu > os.cpu_count():
         raise CPUError()
@@ -85,11 +79,7 @@ def create_simulation_results():
                     generation_x,
                     round_count,
                     returns,
-                    worker_index,
-                    survivors_simulations_summary,
-                    total_simulations_summary,
-                    all_simulations_summary,
-                    mean_simulation_duration))
+                    worker_index))
 
             workers[worker_index] = worker
             worker.start()
@@ -130,10 +120,10 @@ def create_simulation_results():
         survivors_means.append(survivors_means_per_phenotype)
         proportions_means.append(total_means_per_phenotype)
 
-    # print('\033[K\033[F\033[K\033[F\r')
+    print('\033[K\033[F\033[K\033[F\r')
 
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
-    # print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and {round((perf_counter() - start_time)/60,2)} minutes in total')
+    print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and {round((perf_counter() - start_time)/60,2)} minutes in total')
 
     return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options, survivors_simulations_summary, total_simulations_summary, survivors_means, proportions_means, all_simulations_summary
 
