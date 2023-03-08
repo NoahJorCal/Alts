@@ -3,8 +3,7 @@
 from os import path, get_terminal_size
 import re
 import random
-from itertools import combinations
-from itertools import product
+import itertools
 
 from configparser import ConfigParser
 
@@ -61,6 +60,7 @@ class Simulation:
             at the beginning of a generation '''
             self.__simulation_summary = [[],[]]
             self.__alleles_combinations_indexes = []
+            self.__id_iter = itertools.count(start=1)
 
             for gene in model_config.sections():
                 if gene != 'module':
@@ -73,7 +73,7 @@ class Simulation:
                     # Saving codominant phenotypes for each gene
                     codominant_alleles_raw = re.findall('[\w=]*=[\w=]*', model_config[gene]['alleles'].replace(' ', ''))
                     for element in codominant_alleles_raw:
-                        for combination in combinations(element.split('='), 2):
+                        for combination in itertools.combinations(element.split('='), 2):
                             codominant_phenotype = combination[0]+'_'+combination[1]
                             allele_options.append(codominant_phenotype)
                     for allele in allele_options:
@@ -102,7 +102,7 @@ class Simulation:
             for gene in self.genes:
                 # [gene][0] are the gene's alleles
                 all_alleles.append(self.__genes_properties[gene][0])
-            all_alleles_combinations = list(product(*all_alleles))
+            all_alleles_combinations = list(itertools.product(*all_alleles))
             for i in range(len(all_alleles_combinations)):
                 allele_combination_name = ''
                 for element in all_alleles_combinations[i]:
@@ -171,8 +171,9 @@ class Simulation:
 
     def populate(self):
         for i in range(self.__population_size):
-            individual = Individual(self)
+            individual = Individual(self, next(self.__id_iter))
             individual.genotype = self.generate_individual_genotype()
+            individual.generate_initial_id()
             self.__population.append(individual)
 
     # Randomize individual's genotype based on initial gene frequencies
@@ -193,8 +194,9 @@ class Simulation:
     
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
-        individual = Individual(self)
+        individual = Individual(self, next(self.__id_iter))
         individual.genotype = self.__immigrants_genotype
+        individual.generate_initial_id()
         return individual
     
     def group_individuals(self):
@@ -270,8 +272,9 @@ class Simulation:
                             reproducer_allele = random.choice(allele_possibilities)
                         gene_alleles.append(reproducer_allele)
                     new_individual_genotype.append(gene_alleles)
-                new_individual = Individual(self)
+                new_individual = Individual(self, next(self.__id_iter))
                 new_individual.genotype = new_individual_genotype
+                new_individual.generate_id(reproducers)
                 new_population.append(new_individual)
 
         else:
@@ -307,7 +310,7 @@ class Simulation:
                                 reproducer_allele = random.choice(allele_possibilities)
                             gene_alleles.append(reproducer_allele)
                         new_individual_genotype.append(gene_alleles)
-                    new_individual = Individual(self)
+                    new_individual = Individual(self, next(self.__id_iter))
                     new_individual.genotype = new_individual_genotype
                     new_population.append(new_individual)
                 count += 1
@@ -362,6 +365,7 @@ class Simulation:
 
     def pass_generation(self):
         # Data at the start of the generation
+        print('GENERATION NUMBER', self.current_generation)
         self.save_generation_data(0)
         self.assign_individuals_survival_probability()
         self.group_individuals()
@@ -371,16 +375,19 @@ class Simulation:
         # Data after selection event
         self.save_generation_data(1)
         self.__generation += 1
+        # Iterative counter for individual's ids. The number is reset at the end of each generation
+        self.__id_iter = itertools.count(start=1)
 
 
 class Individual:
-    def __init__(self, simulation):
+    def __init__(self, simulation, id_num):
         self.__simulation = simulation
         self.__age = 0
         self.__genotype = []
         self.__genes_properties = {}
         self.__phenotype = []
         self.__survival_probability = 0
+        self.__id = id_num
 
     @property
     def age(self):
@@ -410,6 +417,14 @@ class Individual:
     @survival_probability.setter
     def survival_probability(self, value):
         self.__survival_probability = value
+
+    @property
+    def id(self):
+        return self.__id
+
+    @id.setter
+    def id(self, value):
+        self.__id = value
 
     # Calculates the phenotype considering the genotype and inheritance pattern
     def choose_phenotype(self):
@@ -444,6 +459,31 @@ class Individual:
                         phenotype.append(self.__genotype[i][1]+'_'+self.__genotype[i][0])
         self.phenotype = phenotype
 
+    # Generates the id for individuals with unknown parents
+    def generate_initial_id(self):
+        # Number of digits for adding 0s at the beginning of the id
+        population_digits = len(str(self.__simulation.population_size))
+        generations_digits = len(str(self.__simulation.generations))
+        # First individuals have unknown parents represented with an id with only 0s
+        parents_id = '0' * (population_digits + generations_digits) * 2
+        generation_id = str(self.__simulation.current_generation).zfill(generations_digits)
+        population_id = str(self.__id).zfill(population_digits)
+        ind_id = parents_id + generation_id + population_id
+        self.__id = ind_id
+
+    # Generates the id for individuals with known parents
+    def generate_id(self, parents):
+        # Number of digits for adding 0s at the beginning of the id
+        population_digits = len(str(self.__simulation.population_size))
+        generations_digits = len(str(self.__simulation.generations))
+        # The generation and id number of each parent is saved
+        parents_id = parents[0].id[(generations_digits + population_digits) * 2:] + \
+                     parents[1].id[(generations_digits + population_digits) * 2:]
+        generation_id = str(self.__simulation.current_generation).zfill(generations_digits)
+        population_id = str(self.__id).zfill(population_digits)
+        ind_id = parents_id + generation_id + population_id
+        self.__id = ind_id
+
     def age_individual(self):
         self.__age += 1
 
@@ -476,7 +516,7 @@ def simulator_main():
     for i in range(generations):
         simulation.pass_generation()
         progress = cols*i/generations
-        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
+        # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):
