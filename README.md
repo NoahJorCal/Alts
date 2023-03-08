@@ -36,6 +36,10 @@ The workflow followed by the simulation is the following:
 
 <img src="https://user-images.githubusercontent.com/96572489/170871211-d75bca92-f345-4022-9f7d-964af75999aa.png" alt="Alts' workflow" width="500"/>
 
+_simulator.py_ is the main script that runs each simulation. The simulation is initialized and populated with the initial individuals and then the workflow described above is repeated for each generation.   
+_alts.py_ manages the multithreading when running the program with several simulations at once. The mean results of all the simulations are saved and serialized.  
+_plotter.py_
+
 ## Installation
 ### Linux (Debian-based)
 1. Install Python:

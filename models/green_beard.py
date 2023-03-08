@@ -21,20 +21,19 @@ def selection(groups):
                     group_wo_altruistic = group.copy()
                     group_wo_altruistic.pop(group.index(individual))
                     possible_recipients = group_wo_altruistic.copy()
-                    #Non altruistic individuals are removed from the list
+                    # Non altruistic individuals are removed from the list
                     for possible_recipient in group_wo_altruistic[::-1]:
                         if possible_recipient.phenotype[1] != 'beard':
                             possible_recipients.pop(group_wo_altruistic.index(possible_recipient))
-                    #If the altruistic individual is going to act altruistic, that
-                    #individual is deleted from the posible benefile beneficiaries
-                    #possible_recipients.pop(group.index(individual))
+                    ''' If the altruistic individual is going to act altruistic, that
+                    individual is deleted from the posible benefile beneficiaries '''
                     if len(possible_recipients) != 0:
                         individual.survival_probability -= altruism_cost
                         recipient = random.choice(possible_recipients)
                         recipient.survival_probability += altruism_benefit
-            #If the individual has the combined allele of selfish and altruistic
-            #the probability to act altruistic is half
             elif '_' in individual.phenotype[0]:
+                ''' If the individual has the combined allele of selfish and altruistic,
+                the probability to act altruistic is half '''
                 if random.random() < altruism_probability:
                     group_wo_altruistic = group.copy()
                     group_wo_altruistic.pop(group.index(individual))
