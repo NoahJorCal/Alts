@@ -60,6 +60,9 @@ class Simulation:
             at the beginning of a generation '''
             self.__simulation_summary = [[],[]]
             self.__alleles_combinations_indexes = []
+            # Number of digits for adding 0s at the beginning of the individuals ids
+            self.__population_digits = len(str(self.__population_size))
+            self.__generations_digits = len(str(self.__generations))
             self.__id_iter = itertools.count(start=1)
 
             for gene in model_config.sections():
@@ -173,7 +176,7 @@ class Simulation:
         for i in range(self.__population_size):
             individual = Individual(self, next(self.__id_iter))
             individual.genotype = self.generate_individual_genotype()
-            individual.generate_initial_id()
+            individual.generate_initial_id(self.current_generation, self.__population_digits, self.__generations_digits)
             self.__population.append(individual)
 
     # Randomize individual's genotype based on initial gene frequencies
@@ -196,7 +199,8 @@ class Simulation:
     def generate_immigrant(self):
         individual = Individual(self, next(self.__id_iter))
         individual.genotype = self.__immigrants_genotype
-        individual.generate_initial_id()
+        # Although the individual has arrived in the current generation, it is considered it starts living in the next
+        individual.generate_initial_id(self.current_generation + 1, self.__population_digits, self.__generations_digits)
         return individual
     
     def group_individuals(self):
@@ -274,7 +278,7 @@ class Simulation:
                     new_individual_genotype.append(gene_alleles)
                 new_individual = Individual(self, next(self.__id_iter))
                 new_individual.genotype = new_individual_genotype
-                new_individual.generate_id(reproducers)
+                new_individual.generate_id(reproducers, self.__population_digits, self.__generations_digits)
                 new_population.append(new_individual)
 
         else:
@@ -365,18 +369,18 @@ class Simulation:
 
     def pass_generation(self):
         # Data at the start of the generation
-        print('GENERATION NUMBER', self.current_generation)
         self.save_generation_data(0)
         self.assign_individuals_survival_probability()
         self.group_individuals()
         model.selection(self.groups)
         self.selection_event()
+        ''' Iterative counter for individual's ids. The number is reset before generating the individuals
+        of the next generation, immigrants or newborns '''
+        self.__id_iter = itertools.count(start=1)
         self.reproduce()
         # Data after selection event
         self.save_generation_data(1)
         self.__generation += 1
-        # Iterative counter for individual's ids. The number is reset at the end of each generation
-        self.__id_iter = itertools.count(start=1)
 
 
 class Individual:
@@ -460,26 +464,21 @@ class Individual:
         self.phenotype = phenotype
 
     # Generates the id for individuals with unknown parents
-    def generate_initial_id(self):
-        # Number of digits for adding 0s at the beginning of the id
-        population_digits = len(str(self.__simulation.population_size))
-        generations_digits = len(str(self.__simulation.generations))
+    def generate_initial_id(self, generation, population_digits, generations_digits):
         # First individuals have unknown parents represented with an id with only 0s
         parents_id = '0' * (population_digits + generations_digits) * 2
-        generation_id = str(self.__simulation.current_generation).zfill(generations_digits)
+        generation_id = str(generation).zfill(generations_digits)
         population_id = str(self.__id).zfill(population_digits)
         ind_id = parents_id + generation_id + population_id
         self.__id = ind_id
 
     # Generates the id for individuals with known parents
-    def generate_id(self, parents):
-        # Number of digits for adding 0s at the beginning of the id
-        population_digits = len(str(self.__simulation.population_size))
-        generations_digits = len(str(self.__simulation.generations))
+    def generate_id(self, parents, population_digits, generations_digits):
         # The generation and id number of each parent is saved
         parents_id = parents[0].id[(generations_digits + population_digits) * 2:] + \
                      parents[1].id[(generations_digits + population_digits) * 2:]
-        generation_id = str(self.__simulation.current_generation).zfill(generations_digits)
+        # Although the individual is born in the current generation, it is considered it starts living in the next one
+        generation_id = str(self.__simulation.current_generation + 1).zfill(generations_digits)
         population_id = str(self.__id).zfill(population_digits)
         ind_id = parents_id + generation_id + population_id
         self.__id = ind_id
