@@ -53,6 +53,7 @@ sudo apt-get install python3
 ```bash
 pip3 install configparser
 pip3 install matplotlib
+pip3 install scipy
 ```
 3. Download [project files](https://github.com/NoahJorCal/Alts/archive/refs/heads/main.zip).
 4. Unzip the file.
@@ -63,6 +64,7 @@ pip3 install matplotlib
 ```bash
 pip install configparser
 pip install matplotlib
+pip install scipy
 ```
 3. Download [project files](https://github.com/NoahJorCal/Alts/archive/refs/heads/main.zip).
 4. Unzip the file.

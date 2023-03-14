@@ -5,11 +5,13 @@ import argparse
 
 from matplotlib import pyplot as plt
 
-parser = argparse.ArgumentParser(description='Altruism simulations')
+parser = argparse.ArgumentParser(description = 'Plot results from alts.py script')
 parser.add_argument('-i', '--input', default = 'result.alt', help = 'Input file where data will be extracted')
-parser.add_argument('-s', '--show', action='store_true', help = 'Use -s or --show to show the plots, they will be saved'
-                                                                ' as .png files either way')
+parser.add_argument('-d', '--display', action = 'store_true', help = 'Display the plots in popup windows, they will be '
+                                                                     'saved .png if -q or --quiet is not used')
+parser.add_argument('-q', '--quiet', action = 'store_false', help = 'Avoid saving the plots as .png files')
 args = parser.parse_args()
+
 
 def simulation_plot():
     with open(vars(args)['input'], 'rb') as input_file:
@@ -24,7 +26,6 @@ def simulation_plot():
     * proportions_means = Mean proportions data by phenotype per generation of all simulations
     * all_simulations_summary = Proportion of selfish individuals per generation in each simulation
     '''
-
     population_size = simulations_summary[0]
     dict_phenotypes_combinations_indexes = simulations_summary[1]
     generation_x = range(len(simulations_summary[3][0][0]))
@@ -59,7 +60,8 @@ def simulation_plot():
     plt.ylabel('Proportion of individuals')
     plt.legend()
 
-    plt.savefig('proportions_plot.png')
+    if args.quiet:
+        plt.savefig('proportions_plot.png')
 
     # Total number of survivors is calculated to be added to the plot
     total_survivors = []
@@ -71,6 +73,7 @@ def simulation_plot():
 
     survivors_means.append(total_survivors)
     colour_map.append('#000000ff')
+
     # Line plot of survivors per generation by phenotype
     survivors_plot = plt.figure(2)
     legend_phenotypes.append('total')
@@ -83,21 +86,23 @@ def simulation_plot():
     plt.ylabel('Number of individuals')
     plt.legend(loc = 'upper right')
 
-    plt.savefig('survivors_plot.png')
+    if args.quiet:
+        plt.savefig('survivors_plot.png')
 
     # Line plot of the proportion of selfish individuals in every simulation
     individual_survivors_plot = plt.figure(3)
     for simulation in all_simulations_summary:
         plt.plot(simulation, color = 'black', linewidth = 0.5)
     plt.margins(0)
-    plt.ylim(0,1)
+    plt.ylim(0, 1)
     plt.title('Selfish individuals per simulation')
     plt.xlabel('Generation')
     plt.ylabel('Proportion of individuals')
 
-    plt.savefig('individual_survivors_plot.png')
+    if args.quiet:
+        plt.savefig('individual_survivors_plot.png')
 
-    if args.show:
+    if args.display:
         plt.show()
 
 

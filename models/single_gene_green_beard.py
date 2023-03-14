@@ -7,23 +7,34 @@ general_config = ConfigParser()
 general_config.read('config.ini')
 
 altruism_probability = float(general_config['population']['altruism_probability'])
+relatedness = float(general_config['population']['relatedness'])
 altruism_cost = float(general_config['population']['altruism_cost'])
 altruism_benefit = float(general_config['population']['altruism_benefit'])
 
-def selection(groups):
+
+def selection(groups, pedigree = None):
     for group in groups:
         for individual in group:
             if individual.phenotype[0] == 'altruist':
                 if random.random() < altruism_probability:
                     ''' If the altruist individual is going to act altruist, that
-                    individual is deleted from the posible benefile beneficiaries '''
+                    individual is deleted from the possible beneficiaries '''
                     group_wo_altruist = group.copy()
                     group_wo_altruist.pop(group.index(individual))
                     possible_recipients = group_wo_altruist.copy()
-                    # Non altruist individuals are removed from the list
-                    for possible_recipient in group_wo_altruist[::-1]:
-                        if possible_recipient.phenotype[0] != 'altruist':
-                            possible_recipients.pop(group_wo_altruist.index(possible_recipient))
+                    # Non-altruistic individuals are removed from the list
+                    if pedigree:
+                        ''' If some amount of relatedness is needed to act altruistic,
+                        the possible recipients are also filtered by relatedness '''
+                        for possible_recipient in group_wo_altruist[::-1]:
+                            if possible_recipient.phenotype[0] != 'altruist' or \
+                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                                possible_recipients.pop(group_wo_altruist.index(possible_recipient))
+                    else:
+                        for possible_recipient in group_wo_altruist[::-1]:
+                            if possible_recipient.phenotype[0] != 'altruist' or \
+                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                                possible_recipients.pop(group_wo_altruist.index(possible_recipient))
 
                     if len(possible_recipients) != 0:
                         recipient = random.choice(possible_recipients)
@@ -38,9 +49,19 @@ def selection(groups):
                     possible_recipients = group.copy()
                     group_wo_altruist.pop(group.index(individual))
                     possible_recipients.pop(group.index(individual))
-                    for possible_recipient in group_wo_altruist[::-1]:
-                        if possible_recipient.phenotype[0] != 'altruist':
-                            possible_recipients.pop(group_wo_altruist.index(possible_recipient))
+                    if pedigree:
+                        ''' If some amount of relatedness is needed to act altruistic,
+                        the possible recipients are also filtered by relatedness '''
+                        for possible_recipient in group_wo_altruist[::-1]:
+                            if possible_recipient.phenotype[0] != 'altruist' or \
+                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                                possible_recipients.pop(group_wo_altruist.index(possible_recipient))
+                    else:
+                        for possible_recipient in group_wo_altruist[::-1]:
+                            if possible_recipient.phenotype[0] != 'altruist' or \
+                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                                possible_recipients.pop(group_wo_altruist.index(possible_recipient))
+
                     if len(possible_recipients) != 0:
                         individual.survival_probability -= altruism_cost
                         recipient = random.choice(possible_recipients)
