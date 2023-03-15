@@ -63,15 +63,10 @@ class Simulation:
         at the beginning of a generation '''
         self.__simulation_summary = [[], []]
         self.__alleles_combinations_indexes = []
+        self.__newest_ind_id = 0
         if self.__relatedness != 0:
             self.__pedigree = Pedigree(self.__population_size)
             self.__last_ind_id = 0
-            # for i in range(self.__lifespan):
-            #     self.__last_ind_id.append(0)
-
-        # print(QUITAR ESTO vvvvvv)
-        self.__newest_ind_id = 0
-
 
 
         for gene in model_config.sections():
@@ -86,19 +81,21 @@ class Simulation:
                 codominant_alleles_raw = re.findall('[\w=]*=[\w=]*', model_config[gene]['alleles'].replace(' ', ''))
                 for element in codominant_alleles_raw:
                     for combination in itertools.combinations(element.split('='), 2):
-                        codominant_phenotype = combination[0]+'_'+combination[1]
+                        codominant_phenotype = combination[0] + '_' + combination[1]
                         allele_options.append(codominant_phenotype)
                 for allele in allele_options:
                     if re.search('\s', allele):
                         raise Exception(f'Missing inheritance symbol in "{allele}", allele names can\'t have spaces')
                 initial_frequencies = re.split('\s*,\s*', model_config[gene]['initial_frequencies'])
-                if len(initial_frequencies) != len(noncodominant_allele_options) and len(initial_frequencies) != len(noncodominant_allele_options)-1:
-                    raise Exception(f'Incorrect number of allele frequencies given in gene "{gene}", there must be same number as alleles or one less')
+                if len(initial_frequencies) != len(noncodominant_allele_options) and \
+                        len(initial_frequencies) != len(noncodominant_allele_options) - 1:
+                    raise Exception(f'Incorrect number of allele frequencies given in gene "{gene}",'
+                                    f'there must be same number as alleles or one less')
                 # Initial frequencies are defined by a portion of the range from 0 to 1
                 # First frequency range is set manually as it needn't be calculated
                 initial_frequencies_ranges = [float(initial_frequencies[0])]
                 for i in range(len(initial_frequencies))[1:]:
-                    new_range = float(initial_frequencies[i])+initial_frequencies_ranges[i-1]
+                    new_range = float(initial_frequencies[i]) + initial_frequencies_ranges[i - 1]
                     if new_range > 1:
                         raise Exception(f'Error in gene "{gene}", the sum of allele frequencies cannot exceed 1')
                     initial_frequencies_ranges.append(new_range)
@@ -118,7 +115,7 @@ class Simulation:
         for i in range(len(all_alleles_combinations)):
             allele_combination_name = ''
             for element in all_alleles_combinations[i]:
-                allele_combination_name += element+'&'
+                allele_combination_name += element + '&'
             alleles_combinations_indexes[allele_combination_name[:-1]] = i
         self.__alleles_combinations_indexes = alleles_combinations_indexes
 
@@ -146,7 +143,7 @@ class Simulation:
         return self.__population
 
     @population.setter
-    def population(self,value):
+    def population(self, value):
         self.__population = value
 
     @property
@@ -181,7 +178,6 @@ class Simulation:
     def alleles_combinations_indexes(self):
         return self.__alleles_combinations_indexes
 
-    # print(QUITAR ESTO vvvvvv)
     @property
     def newest_ind_id(self):
         return self.__newest_ind_id
@@ -193,11 +189,8 @@ class Simulation:
     def populate(self):
         for i in range(self.__population_size):
             individual = Individual(self)
-            # print('Founder:', individual.id)
             individual.genotype = self.generate_individual_genotype()
             self.__population.append(individual)
-            # if self.__relatedness != 0:
-            #     self.__last_ind_id[-2] = individual.id
 
     # Randomize individual's genotype based on initial gene frequencies
     def generate_individual_genotype(self):
@@ -214,16 +207,15 @@ class Simulation:
                         break
             allele_pairs.append(alleles)
         return allele_pairs
-    
+
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
         individual = Individual(self)
-        # print('Immigrant:', individual.id)
         individual.genotype = self.__immigrants_genotype
         if self.__relatedness != 0:
             self.__pedigree.add_individual(individual)
         return individual
-    
+
     def group_individuals(self):
         population_copy = self.__population.copy()
         groups = []
@@ -242,7 +234,7 @@ class Simulation:
             while len(population_copy) != 0:
                 groups[random.randint(0, len(groups) - 1)].append(population_copy.pop(0))
             self.__groups = groups
-    
+
     # Random survival probability based on the given range
     def assign_individuals_survival_probability(self):
         for individual in self.__population:
@@ -258,8 +250,6 @@ class Simulation:
             picker = random.random()
             if picker < individual.survival_probability:
                 self.__survivors_per_generation.append(individual)
-            # else:
-                # print(f'Individual {individual.id} died')
 
         self.population = self.__survivors_per_generation
         self.__survival_rate_mean = sum(survival_probabilities)/len(survival_probabilities)
@@ -283,23 +273,9 @@ class Simulation:
                     survivors_population.append(individual)
                 else:
                     self.__last_ind_id = individual.id
-            # survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
-            # print('Survivors: ', end='')
-            # for i in self.__population:
-            #     print(i.id, end=' ')
-            # print()
-            # print('For next generation: ', end='')
-            # for i in survivors_population:
-            #     print(i.id, end=' ')
-            # print()
             missing_population = self.__population_size - len(survivors_population)
         if self.__immigration != 0:
             immigrants = min(round(self.__population_size * self.__immigration), missing_population)
-            # print()
-            # print()
-            # print()
-            # print()
-            # print(f'GENERATING {immigrants} IMMIGRANTS')
             for i in range(immigrants):
                 new_population.append(self.generate_immigrant())
 
@@ -327,15 +303,9 @@ class Simulation:
                 new_individual.dam = reproducers[1].id
                 new_individual.genotype = new_individual_genotype
                 new_population.append(new_individual)
-
-                # print(f'Newborn: {new_individual.id} with sire: {new_individual.sire} and dam: {new_individual.dam}')
-
                 if self.__relatedness != 0:
                     self.__pedigree.add_individual(new_individual)
-                    # self.__last_ind_id[-1] = new_individual.id
-
-                # print(QUITAR ESTO vvvvvv)
-                self.__last_individual = new_individual.id
+                self.__newest_ind_id = new_individual.id
 
         else:
             if self.__reproduction > len(self.__population[0].phenotype):
@@ -374,7 +344,6 @@ class Simulation:
                     new_population.append(new_individual)
                     if self.__relatedness != 0:
                         self.__pedigree.add_individual(new_individual)
-                        # self.__last_ind_id[-1] = new_individual.id
 
         # Replace all the previous population if the lifespan is 1
         if self.__lifespan <= 1:
@@ -422,10 +391,6 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-        # print('GENERATION', self.current_generation)
-        # print(self.__pedigree.kinship.todense())
-        # print(self.__pedigree.pedigree)
-        # Data at the start of the generation
         self.save_generation_data(0)
         self.assign_individuals_survival_probability()
         self.group_individuals()
@@ -434,28 +399,17 @@ class Simulation:
         else:
             model.selection(self.groups)
         self.selection_event()
-        # print('Selection occured')
         ''' Iterative counter for individual's ids. The number is reset before generating the individuals
         of the next generation, immigrants or newborns '''
-        # print('Reproduction started')
         self.reproduce()
-        # print('Reproducction occured')
         # Data after selection event
         self.save_generation_data(1)
-        # print(f'Population size is {len(self.__population)}')
         if self.__relatedness != 0:
-            # if self.current_generation >= self.__lifespan - 1:
-            # print(f'This generation all individual up until {self.__last_ind_id} have died of old age')
             self.__pedigree.trim_kinship_matrix(self.__last_ind_id)
-                # self.__last_ind_id = self.__last_ind_id[1:] + [0]
         self.__generation += 1
-        # print(f'End of generation, last_ind list: {self.__last_ind_id}')
 
 
 class Individual:
-
-    # id_iter = itertools.count(start=1)
-
     def __init__(self, simulation):
         self.__simulation = simulation
         self.__age = 0
@@ -463,7 +417,6 @@ class Individual:
         self.__genes_properties = {}
         self.__phenotype = []
         self.__survival_probability = 0
-        # self.__id = next(self.id_iter)
         self.__id = simulation.newest_ind_id + 1
         simulation.newest_ind_id = self.__id
         self.__sire = 0
@@ -533,12 +486,14 @@ class Individual:
             else:
                 inheritance_divider = '(?:>|=|\s|$|^)'
                 characters_between_alleles = re.search(
-                    f'{inheritance_divider}{self.__genotype[i][0]}{inheritance_divider}(.*){inheritance_divider}{self.__genotype[i][1]}{inheritance_divider}',
+                    f'{inheritance_divider}{self.__genotype[i][0]}{inheritance_divider}(.*){inheritance_divider}'
+                    f'{self.__genotype[i][1]}{inheritance_divider}',
                     model_config[gene]['alleles'])
                 reverse = False
-                if not characters_between_alleles or characters_between_alleles == None:
+                if not characters_between_alleles:
                     characters_between_alleles = re.search(
-                        f'{inheritance_divider}{self.__genotype[i][1]}{inheritance_divider}(.*){inheritance_divider}{self.__genotype[i][0]}{inheritance_divider}',
+                        f'{inheritance_divider}{self.__genotype[i][1]}{inheritance_divider}(.*){inheritance_divider}'
+                        f'{self.__genotype[i][0]}{inheritance_divider}',
                         model_config[gene]['alleles'])
                     reverse = True
                 if '>' in characters_between_alleles.group(1):
@@ -547,12 +502,12 @@ class Individual:
                     else:
                         phenotype.append(self.__genotype[i][0])
                 else:
-                    chosen_phenotype = self.__genotype[i][0]+'_'+self.__genotype[i][1]
+                    chosen_phenotype = self.__genotype[i][0] + '_' + self.__genotype[i][1]
                     # [gene][0] is equal to gene's alleles
                     if chosen_phenotype in self.__simulation.genes_properties[gene][0]:
                         phenotype.append(chosen_phenotype)
                     else:
-                        phenotype.append(self.__genotype[i][1]+'_'+self.__genotype[i][0])
+                        phenotype.append(self.__genotype[i][1] + '_' + self.__genotype[i][0])
         self.phenotype = phenotype
 
     def age_individual(self):
@@ -560,17 +515,18 @@ class Individual:
 
 
 def simulator_main():
-    generations = int(general_config['simulation']['generations'])+1
+    generations = int(general_config['simulation']['generations']) + 1
     population_size = int(general_config['population']['size'])
     lifespan = int(general_config['population']['lifespan'])
     emigration = float(general_config['population']['emigration'])
     immigration = float(general_config['population']['immigration'])
-    immigration_phenotype = general_config['population']['immigration_phenotype'].replace(' ','').split(',')
+    immigration_phenotype = general_config['population']['immigration_phenotype'].replace(' ', '').split(',')
     reproduction = int(general_config['population']['reproduction'])
     selection_group_size = int(general_config['population']['selection_group_size'])
     survival_range = [float(perc) for perc in re.split(',\s*', general_config['population']['survival_range'])]
     relatedness = float(general_config['population']['relatedness'])
-    altruism_cost_benefit = [float(general_config['population']['altruism_cost']), float(general_config['population']['altruism_benefit'])]
+    altruism_cost_benefit = [float(general_config['population']['altruism_cost']),
+                             float(general_config['population']['altruism_benefit'])]
     altruism_probability = float(general_config['population']['altruism_probability'])
     model = general_config['simulation']['model']
 
@@ -588,15 +544,16 @@ def simulator_main():
     for i in range(generations):
         simulation.pass_generation()
         progress = cols*i/generations
-        # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress-int(progress))*8)] + ' ' * (cols - int(progress) - 1), end='')
+        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+              ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):
         for generation_index in range(len(simulation.simulation_summary[1][phenotype_index])):
-            simulation.simulation_summary[1][phenotype_index][generation_index] = round(simulation.simulation_summary[1][phenotype_index][generation_index], 5)
+            simulation.simulation_summary[1][phenotype_index][generation_index] = \
+                round(simulation.simulation_summary[1][phenotype_index][generation_index], 5)
 
-    # print(QUITAR ESTO                                                                                             vvvvvv)
-    return simulation.simulation_summary, simulation.alleles_combinations_indexes, simulation.dict_allele_options, simulation.newest_ind_id
+    return simulation.simulation_summary, simulation.alleles_combinations_indexes, simulation.dict_allele_options
 
 
 if __name__ == '__main__':

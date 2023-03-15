@@ -25,9 +25,9 @@ general_config.read('config.ini')
 
 start_time = perf_counter()
 
-parser = argparse.ArgumentParser(description='Altruism simulations')
+parser = argparse.ArgumentParser(description = 'Altruism simulations')
 parser.add_argument('-o', '--outfile', default = 'result.alt', help = 'Output file where data will be stored')
-parser.add_argument('-c', '--cpu', default = 1, type = int, help = 'Number of simultanious workers')
+parser.add_argument('-c', '--cpu', default = 1, type = int, help = 'Number of simultaneous workers')
 args = parser.parse_args()
 
 
@@ -38,34 +38,33 @@ def run_simulation(
         worker_index):
 
     start_counter = perf_counter()
-    # print(QUITAR ESTO                                                               vvvvvvvv)
-    simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, last_ind = simulator_main()
+    simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options = simulator_main()
 
     phenotypes = list(dict_phenotypes_combinations_indexes.keys())
     selfish_indexes = []
     # Only selfish individuals, if other genes are present they are ignored
     single_simulations_summary = [0 for generation in generation_x]
-    for phentoype_index in range(len(phenotypes)):
-        if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phentoype_index]):
-            selfish_indexes.append(phentoype_index)
+    for phenotype_index in range(len(phenotypes)):
+        if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phenotype_index]):
+            selfish_indexes.append(phenotype_index)
     # Counts of selfish vs non-selfish individuals
     for phenotype in selfish_indexes:
         single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
 
     simulation_duration = perf_counter() - start_counter
-    # print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds. Running round {round_count + 1} with {args.cpu} simulations...')
+    print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds.'
+          f'Running round {round_count + 1} with {args.cpu} simulations...')
 
-    returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration)
-    # print(QUITAR ESTO vvvvvv)
-    print(f'This simulation had {last_ind} individuals')
+    returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options,
+                             single_simulations_summary, simulation_duration)
 
 
 def create_simulation_results():
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
-    generation_x = range(int(general_config['simulation']['generations'])+1)
+    generation_x = range(int(general_config['simulation']['generations']) + 1)
     population_size = int(general_config['population']['size'])
     round_count = 0
-    # print(f'Running first round of {args.cpu} simulations...')
+    print(f'Running first round of {args.cpu} simulations...')
 
     mean_simulation_duration = 0
     total_simulations_summary = []
@@ -96,7 +95,8 @@ def create_simulation_results():
 
         # After all the workers have finished, the data from each simulation is saved
         for worker_return in returns:
-            simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration = worker_return
+            simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options,\
+                single_simulations_summary, simulation_duration = worker_return
             survivors_simulations_summary.append(simulation_summary[0])
             total_simulations_summary.append(simulation_summary[1])
             all_simulations_summary.append(single_simulations_summary)
@@ -128,16 +128,17 @@ def create_simulation_results():
         survivors_means.append(survivors_means_per_phenotype)
         proportions_means.append(total_means_per_phenotype)
 
-    # print('\033[K\033[F\033[K\033[F\r')
+    print('\033[K\033[F\033[K\033[F\r')
 
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
-    # print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
-    #       f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+    print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
+          f'{round((perf_counter() - start_time)/60,2)} minutes in total')
 
-    return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options, survivors_simulations_summary,\
-        total_simulations_summary, survivors_means, proportions_means, all_simulations_summary
+    return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options,\
+        survivors_simulations_summary, total_simulations_summary, survivors_means,\
+        proportions_means, all_simulations_summary
 
 
 # The result of the simulations is serialized and saved in a file for the plotter to plot the result
 with open(args.outfile, 'wb') as config_dictionary_file:
-  pickle.dump(create_simulation_results(), config_dictionary_file)
+    pickle.dump(create_simulation_results(), config_dictionary_file)
