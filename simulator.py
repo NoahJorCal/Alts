@@ -69,6 +69,11 @@ class Simulation:
             # for i in range(self.__lifespan):
             #     self.__last_ind_id.append(0)
 
+        # print(QUITAR ESTO vvvvvv)
+        self.__newest_ind_id = 0
+
+
+
         for gene in model_config.sections():
             if gene != 'module':
                 incorrect_character = re.search('[^\w\s=>]', model_config[gene]['alleles'])
@@ -157,7 +162,7 @@ class Simulation:
         return self.__simulation_summary
 
     @simulation_summary.setter
-    def simulation_summary(self,value):
+    def simulation_summary(self, value):
         self.__simulation_summary = value
 
     @property
@@ -176,10 +181,19 @@ class Simulation:
     def alleles_combinations_indexes(self):
         return self.__alleles_combinations_indexes
 
+    # print(QUITAR ESTO vvvvvv)
+    @property
+    def newest_ind_id(self):
+        return self.__newest_ind_id
+
+    @newest_ind_id.setter
+    def newest_ind_id(self, value):
+        self.__newest_ind_id = value
+
     def populate(self):
         for i in range(self.__population_size):
             individual = Individual(self)
-            print('Founder:', individual.id)
+            # print('Founder:', individual.id)
             individual.genotype = self.generate_individual_genotype()
             self.__population.append(individual)
             # if self.__relatedness != 0:
@@ -204,7 +218,7 @@ class Simulation:
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
         individual = Individual(self)
-        print('Immigrant:', individual.id)
+        # print('Immigrant:', individual.id)
         individual.genotype = self.__immigrants_genotype
         if self.__relatedness != 0:
             self.__pedigree.add_individual(individual)
@@ -244,8 +258,8 @@ class Simulation:
             picker = random.random()
             if picker < individual.survival_probability:
                 self.__survivors_per_generation.append(individual)
-            else:
-                print(f'Individual {individual.id} died')
+            # else:
+                # print(f'Individual {individual.id} died')
 
         self.population = self.__survivors_per_generation
         self.__survival_rate_mean = sum(survival_probabilities)/len(survival_probabilities)
@@ -270,22 +284,22 @@ class Simulation:
                 else:
                     self.__last_ind_id = individual.id
             # survivors_population = [individual for individual in self.__population if individual.age < self.__lifespan]
-            print('Survivors: ', end='')
-            for i in self.__population:
-                print(i.id, end=' ')
-            print()
-            print('For next generation: ', end='')
-            for i in survivors_population:
-                print(i.id, end=' ')
-            print()
+            # print('Survivors: ', end='')
+            # for i in self.__population:
+            #     print(i.id, end=' ')
+            # print()
+            # print('For next generation: ', end='')
+            # for i in survivors_population:
+            #     print(i.id, end=' ')
+            # print()
             missing_population = self.__population_size - len(survivors_population)
         if self.__immigration != 0:
             immigrants = min(round(self.__population_size * self.__immigration), missing_population)
-            print()
-            print()
-            print()
-            print()
-            print(f'GENERATING {immigrants} IMMIGRANTS')
+            # print()
+            # print()
+            # print()
+            # print()
+            # print(f'GENERATING {immigrants} IMMIGRANTS')
             for i in range(immigrants):
                 new_population.append(self.generate_immigrant())
 
@@ -314,11 +328,14 @@ class Simulation:
                 new_individual.genotype = new_individual_genotype
                 new_population.append(new_individual)
 
-                print(f'Newborn: {new_individual.id} with sire: {new_individual.sire} and dam: {new_individual.dam}')
+                # print(f'Newborn: {new_individual.id} with sire: {new_individual.sire} and dam: {new_individual.dam}')
 
                 if self.__relatedness != 0:
                     self.__pedigree.add_individual(new_individual)
                     # self.__last_ind_id[-1] = new_individual.id
+
+                # print(QUITAR ESTO vvvvvv)
+                self.__last_individual = new_individual.id
 
         else:
             if self.__reproduction > len(self.__population[0].phenotype):
@@ -405,7 +422,7 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-        print('GENERATION', self.current_generation)
+        # print('GENERATION', self.current_generation)
         # print(self.__pedigree.kinship.todense())
         # print(self.__pedigree.pedigree)
         # Data at the start of the generation
@@ -417,18 +434,18 @@ class Simulation:
         else:
             model.selection(self.groups)
         self.selection_event()
-        print('Selection occured')
+        # print('Selection occured')
         ''' Iterative counter for individual's ids. The number is reset before generating the individuals
         of the next generation, immigrants or newborns '''
-        print('Reproduction started')
+        # print('Reproduction started')
         self.reproduce()
-        print('Reproducction occured')
+        # print('Reproducction occured')
         # Data after selection event
         self.save_generation_data(1)
-        print(f'Population size is {len(self.__population)}')
+        # print(f'Population size is {len(self.__population)}')
         if self.__relatedness != 0:
             # if self.current_generation >= self.__lifespan - 1:
-            print(f'This generation all individual up until {self.__last_ind_id} have died of old age')
+            # print(f'This generation all individual up until {self.__last_ind_id} have died of old age')
             self.__pedigree.trim_kinship_matrix(self.__last_ind_id)
                 # self.__last_ind_id = self.__last_ind_id[1:] + [0]
         self.__generation += 1
@@ -437,7 +454,7 @@ class Simulation:
 
 class Individual:
 
-    id_iter = itertools.count(start=1)
+    # id_iter = itertools.count(start=1)
 
     def __init__(self, simulation):
         self.__simulation = simulation
@@ -446,7 +463,9 @@ class Individual:
         self.__genes_properties = {}
         self.__phenotype = []
         self.__survival_probability = 0
-        self.__id = next(self.id_iter)
+        # self.__id = next(self.id_iter)
+        self.__id = simulation.newest_ind_id + 1
+        simulation.newest_ind_id = self.__id
         self.__sire = 0
         self.__dam = 0
 
@@ -482,8 +501,6 @@ class Individual:
     @property
     def id(self):
         return self.__id
-
-
 
     @id.setter
     def id(self, value):
@@ -577,7 +594,9 @@ def simulator_main():
     for phenotype_index in range(len(simulation.simulation_summary[1])):
         for generation_index in range(len(simulation.simulation_summary[1][phenotype_index])):
             simulation.simulation_summary[1][phenotype_index][generation_index] = round(simulation.simulation_summary[1][phenotype_index][generation_index], 5)
-    return simulation.simulation_summary, simulation.alleles_combinations_indexes, simulation.dict_allele_options
+
+    # print(QUITAR ESTO                                                                                             vvvvvv)
+    return simulation.simulation_summary, simulation.alleles_combinations_indexes, simulation.dict_allele_options, simulation.newest_ind_id
 
 
 if __name__ == '__main__':

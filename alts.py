@@ -38,7 +38,8 @@ def run_simulation(
         worker_index):
 
     start_counter = perf_counter()
-    simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options = simulator_main()
+    # print(QUITAR ESTO                                                               vvvvvvvv)
+    simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, last_ind = simulator_main()
 
     phenotypes = list(dict_phenotypes_combinations_indexes.keys())
     selfish_indexes = []
@@ -55,6 +56,8 @@ def run_simulation(
     # print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds. Running round {round_count + 1} with {args.cpu} simulations...')
 
     returns[worker_index] = (simulation_summary, dict_phenotypes_combinations_indexes, dict_phenotype_options, single_simulations_summary, simulation_duration)
+    # print(QUITAR ESTO vvvvvv)
+    print(f'This simulation had {last_ind} individuals')
 
 
 def create_simulation_results():
