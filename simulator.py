@@ -68,7 +68,6 @@ class Simulation:
             self.__pedigree = Pedigree(self.__population_size)
             self.__last_ind_id = 0
 
-
         for gene in model_config.sections():
             if gene != 'module':
                 incorrect_character = re.search('[^\w\s=>]', model_config[gene]['alleles'])
@@ -315,6 +314,7 @@ class Simulation:
                 first_reproducer = random.choice(possible_reproducers)
                 possible_reproducers.remove(first_reproducer)
                 same_phenotype_count = 0
+                # Repeat until finding a compatible partner
                 while same_phenotype_count < self.__reproduction:
                     if len(possible_reproducers) == 0:
                         break
