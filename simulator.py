@@ -5,6 +5,7 @@ import re
 import random
 import itertools
 from configparser import ConfigParser
+import numpy as np
 
 from pedigree import Pedigree
 
@@ -215,6 +216,8 @@ class Simulation:
             self.__pedigree.add_individual(individual)
         return individual
 
+
+
     def group_individuals(self):
         population_copy = self.__population.copy()
         groups = []
@@ -301,6 +304,15 @@ class Simulation:
                 new_individual.sire = reproducers[0].id
                 new_individual.dam = reproducers[1].id
                 new_individual.genotype = new_individual_genotype
+
+                for generation in range(len(new_individual.ancestry)):
+                    if generation == 0:
+                        new_individual.ancestry[generation] = [reproducers[0].id, reproducers[1].id]
+                    else:
+                        new_individual.ancestry[generation] = np.concatenate((reproducers[0].ancestry[generation - 1],
+                                                                             reproducers[1].ancestry[generation - 1]),
+                                                                             axis=None)
+
                 new_population.append(new_individual)
                 if self.__relatedness != 0:
                     self.__pedigree.add_individual(new_individual)
@@ -391,6 +403,10 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
+        print(f'GENERATION {self.current_generation} BEGINS')
+        # for i in self.__population:
+        #     print(i.id,i.ancestry)
+
         self.save_generation_data(0)
         self.assign_individuals_survival_probability()
         self.group_individuals()
@@ -421,6 +437,10 @@ class Individual:
         simulation.newest_ind_id = self.__id
         self.__sire = 0
         self.__dam = 0
+        self.__ancestry = []
+        for i in range(3):
+            # List of lists with the ancestors in each generation
+            self.__ancestry.append(np.zeros(2 ** (i + 1)))
 
     @property
     def age(self):
@@ -474,6 +494,14 @@ class Individual:
     @dam.setter
     def dam(self, value):
         self.__dam = value
+
+    @property
+    def ancestry(self):
+        return self.__ancestry
+
+    @ancestry.setter
+    def ancestry(self, value):
+        self.__ancestry = value
 
     # Calculates the phenotype considering the genotype and inheritance pattern
     def choose_phenotype(self):
@@ -544,8 +572,8 @@ def simulator_main():
     for i in range(generations):
         simulation.pass_generation()
         progress = cols*i/generations
-        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
-              ' ' * (cols - int(progress) - 1), end='')
+        # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+        #       ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):

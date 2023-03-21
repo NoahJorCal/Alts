@@ -62,3 +62,4 @@ class Pedigree:
         max_ind_id = max(ind_list) - 1 - self.__inds_removed
         min_ind_id = min(ind_list) - 1 - self.__inds_removed
         return self.__kinship[max_ind_id, min_ind_id]
+
