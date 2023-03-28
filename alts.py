@@ -131,8 +131,8 @@ def create_simulation_results():
     # print('\033[K\033[F\033[K\033[F\r')
 
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
-    # print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
-    #       f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+    print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
+          f'{round((perf_counter() - start_time)/60,2)} minutes in total')
 
     return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options, \
         survivors_simulations_summary, total_simulations_summary, survivors_means, \

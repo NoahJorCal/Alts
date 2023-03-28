@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import sys
 from os import path, get_terminal_size
 import re
 import random
@@ -7,7 +7,7 @@ import itertools
 from configparser import ConfigParser
 import numpy as np
 
-from pedigree import Pedigree
+from grm import Pedigree
 
 # Import general configuration
 general_config = ConfigParser()
@@ -35,7 +35,6 @@ class Simulation:
             immigration,
             immigration_phenotype,
             model,
-            reproduction,
             selection_group_size,
             survival_range,
             relatedness,
@@ -51,7 +50,6 @@ class Simulation:
         self.__population = []
         self.__model = model
         self.__genes_properties = {}
-        self.__reproduction = reproduction
         self.__selection_group_size = selection_group_size
         self.__groups = []
         self.__survival_range = survival_range
@@ -282,80 +280,47 @@ class Simulation:
                 new_population.append(self.generate_immigrant())
 
         # Panmixia
-        if self.__reproduction == 0:
-            while len(new_population) < missing_population:
-                reproducers = random.sample(self.__population, 2)
-                new_individual_genotype = []
-                # For each gene there's a probability of mutation
-                for i in range(len(reproducers[0].genotype)):
-                    mutation_rate = float(model_config[self.genes[i]]['mutation_rate'])
-                    gene_alleles = []
-                    # Chose one allele of each gene of each reproducer
-                    for reproducer_index in range(2):
-                        reproducer_allele = random.choice(reproducers[reproducer_index].genotype[i])
-                        # If a mutations occurs, chose from random another allele of the gene
-                        if random.random() < mutation_rate:
-                            allele_possibilities = self.__genes_properties[self.genes[i]][0].copy()
-                            allele_possibilities.remove(reproducer_allele)
-                            reproducer_allele = random.choice(allele_possibilities)
-                        gene_alleles.append(reproducer_allele)
-                    new_individual_genotype.append(gene_alleles)
-                new_individual = Individual(self)
-                new_individual.sire = reproducers[0].id
-                new_individual.dam = reproducers[1].id
-                new_individual.genotype = new_individual_genotype
+        while len(new_population) < missing_population:
+            reproducers = random.sample(self.__population, 2)
+            new_individual_genotype = []
+            # For each gene there's a probability of mutation
+            for i in range(len(reproducers[0].genotype)):
+                mutation_rate = float(model_config[self.genes[i]]['mutation_rate'])
+                gene_alleles = []
+                # Chose one allele of each gene of each reproducer
+                for reproducer_index in range(2):
+                    reproducer_allele = random.choice(reproducers[reproducer_index].genotype[i])
+                    # If a mutations occurs, chose from random another allele of the gene
+                    if random.random() < mutation_rate:
+                        allele_possibilities = self.__genes_properties[self.genes[i]][0].copy()
+                        allele_possibilities.remove(reproducer_allele)
+                        reproducer_allele = random.choice(allele_possibilities)
+                    gene_alleles.append(reproducer_allele)
+                new_individual_genotype.append(gene_alleles)
+            new_individual = Individual(self)
+            new_individual.sire = reproducers[0].id
+            new_individual.dam = reproducers[1].id
+            new_individual.genotype = new_individual_genotype
 
-                for generation in range(len(new_individual.ancestry)):
-                    if generation == 0:
-                        new_individual.ancestry[generation] = [reproducers[0].id, reproducers[1].id]
-                    else:
-                        new_individual.ancestry[generation] = np.concatenate((reproducers[0].ancestry[generation - 1],
-                                                                             reproducers[1].ancestry[generation - 1]),
-                                                                             axis=None)
+            temp_10 = len(survivors_population)
+            temp_0 = self.current_generation
+            temp_1 = new_individual.id
+            temp_a = reproducers[0].ancestry
+            temp_b = reproducers[1].ancestry
+            temp_c = reproducers[0].id
+            temp_d = reproducers[1].id
 
-                new_population.append(new_individual)
-                if self.__relatedness != 0:
-                    self.__pedigree.add_individual(new_individual)
-                self.__newest_ind_id = new_individual.id
-
-        else:
-            if self.__reproduction > len(self.__population[0].phenotype):
-                raise Exception('Number of identical alleles needed for reproduction cannot exceed number of genes')
-            while len(new_population) < missing_population:
-                possible_reproducers = self.__population.copy()
-                first_reproducer = random.choice(possible_reproducers)
-                possible_reproducers.remove(first_reproducer)
-                same_phenotype_count = 0
-                # Repeat until finding a compatible partner
-                while same_phenotype_count < self.__reproduction:
-                    if len(possible_reproducers) == 0:
-                        break
-                    same_phenotype_count = 0
-                    second_reproducer = random.choice(possible_reproducers)
-                    for phenotype_index in range(len(first_reproducer.phenotype)):
-                        if first_reproducer.phenotype[phenotype_index] == second_reproducer.phenotype[phenotype_index]:
-                            same_phenotype_count += 1
-                    possible_reproducers.remove(second_reproducer)
-                if same_phenotype_count >= self.__reproduction:
-                    new_individual_genotype = []
-                    reproducers = [first_reproducer, second_reproducer]
-                    for i in range(len(reproducers[0].genotype)):
-                        mutation_rate = float(model_config[self.genes[i]]['mutation_rate'])
-                        gene_alleles = []
-                        for reproducer_index in range(2):
-                            reproducer_allele = random.choice(reproducers[reproducer_index].genotype[i])
-                            if random.random() < mutation_rate:
-                                # [gene][0] is equal to gene's alleles
-                                allele_possibilities = self.__genes_properties[self.genes[i]][0].copy()
-                                allele_possibilities.remove(reproducer_allele)
-                                reproducer_allele = random.choice(allele_possibilities)
-                            gene_alleles.append(reproducer_allele)
-                        new_individual_genotype.append(gene_alleles)
-                    new_individual = Individual(self)
-                    new_individual.genotype = new_individual_genotype
-                    new_population.append(new_individual)
-                    if self.__relatedness != 0:
-                        self.__pedigree.add_individual(new_individual)
+            for generation in range(len(new_individual.ancestry)):
+                if generation == 0:
+                    new_individual.ancestry[generation] = [reproducers[0].id, reproducers[1].id]
+                else:
+                    new_individual.ancestry[generation] = reproducers[0].ancestry[generation - 1] + reproducers[1].ancestry[generation - 1]
+            temp_e = new_individual.ancestry
+            # print(temp_1, temp_e)
+            new_population.append(new_individual)
+            if self.__relatedness != 0:
+                self.__pedigree.add_individual(new_individual)
+            self.__newest_ind_id = new_individual.id
 
         # Replace all the previous population if the lifespan is 1
         if self.__lifespan <= 1:
@@ -403,26 +368,53 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
+        # print()
         print(f'GENERATION {self.current_generation} BEGINS')
         # for i in self.__population:
-        #     print(i.id,i.ancestry)
+        #     print('A', i.id, i.ancestry)
 
         self.save_generation_data(0)
+        # print('Save generation data')
+        # for i in self.__population:
+        #     print('B', i.id, i.ancestry)
+
         self.assign_individuals_survival_probability()
+        # print('Assign individuals survival probability')
+        # for i in self.__population:
+        #     print('C', i.id, i.ancestry)
+
         self.group_individuals()
+        # print('Groups individuals')
+        # for i in self.__population:
+        #     print('D', i.id, i.ancestry)
+
         if self.__relatedness != 0:
             model.selection(self.groups, self.__pedigree)
         else:
             model.selection(self.groups)
+        # print('Model selection')
+        # for i in self.__population:
+        #     print('E', i.id, i.ancestry)
+
         self.selection_event()
-        ''' Iterative counter for individual's ids. The number is reset before generating the individuals
-        of the next generation, immigrants or newborns '''
+        # print('Selection event')
+        # for i in self.__population:
+        #     print('F', i.id, i.ancestry)
+
         self.reproduce()
+        # print('Reproduce')
+        # for i in self.__population:
+        #     print('G', i.id, i.ancestry)
         # Data after selection event
         self.save_generation_data(1)
-        if self.__relatedness != 0:
-            self.__pedigree.trim_kinship_matrix(self.__last_ind_id)
+        # print('Save generation data')
+        # for i in self.__population:
+        #     print('H', i.id, i.ancestry)
+        # if self.__relatedness != 0:
+        #     self.__pedigree.trim_kinship_matrix(self.__last_ind_id)
         self.__generation += 1
+        # print(self.__pedigree.kinship.count_nonzero())
+        # print(self.__pedigree.kinship.data.nbytes)
 
 
 class Individual:
@@ -440,7 +432,7 @@ class Individual:
         self.__ancestry = []
         for i in range(3):
             # List of lists with the ancestors in each generation
-            self.__ancestry.append(np.zeros(2 ** (i + 1)))
+            self.__ancestry.append([0] * 2 ** (i + 1))
 
     @property
     def age(self):
@@ -549,7 +541,6 @@ def simulator_main():
     emigration = float(general_config['population']['emigration'])
     immigration = float(general_config['population']['immigration'])
     immigration_phenotype = general_config['population']['immigration_phenotype'].replace(' ', '').split(',')
-    reproduction = int(general_config['population']['reproduction'])
     selection_group_size = int(general_config['population']['selection_group_size'])
     survival_range = [float(perc) for perc in re.split(',\s*', general_config['population']['survival_range'])]
     relatedness = float(general_config['population']['relatedness'])
@@ -560,18 +551,18 @@ def simulator_main():
 
     simulation = Simulation(population_size, generations, lifespan,
                             emigration, immigration, immigration_phenotype,
-                            model, reproduction, selection_group_size, survival_range,
+                            model, selection_group_size, survival_range,
                             relatedness, altruism_cost_benefit, altruism_probability)
     simulation.populate()
 
     # Progress bar
     bar_msg = 'Simulation progress: '
-    cols = get_terminal_size().columns - len(bar_msg)
+    # cols = get_terminal_size().columns - len(bar_msg)
     bar_char = '█'
     bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(generations):
         simulation.pass_generation()
-        progress = cols*i/generations
+        # progress = cols*i/generations
         # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
         #       ' ' * (cols - int(progress) - 1), end='')
 
