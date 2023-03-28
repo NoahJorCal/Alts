@@ -148,6 +148,6 @@ def recursive_relatedness(ancestry_1, ancestry_2, temp):
         return relatedness
 
 
-print(recursive_relatedness([[21], [13, 6], [10, 6, 0, 0]],
-                            [[18], [12, 2], [6, 1, 0, 0]], 0))
+# print(recursive_relatedness([[21], [13, 6], [10, 6, 0, 0]],
+#                             [[18], [12, 2], [6, 1, 0, 0]], 0))
 

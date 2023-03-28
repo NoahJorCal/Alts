@@ -7,7 +7,7 @@ import itertools
 from configparser import ConfigParser
 import numpy as np
 
-from grm import Pedigree
+# from grm import Pedigree
 
 # Import general configuration
 general_config = ConfigParser()
@@ -63,9 +63,9 @@ class Simulation:
         self.__simulation_summary = [[], []]
         self.__alleles_combinations_indexes = []
         self.__newest_ind_id = 0
-        if self.__relatedness != 0:
-            self.__pedigree = Pedigree(self.__population_size)
-            self.__last_ind_id = 0
+        # if self.__relatedness != 0:
+        #     self.__pedigree = Pedigree(self.__population_size)
+        #     self.__last_ind_id = 0
 
         for gene in model_config.sections():
             if gene != 'module':
@@ -210,8 +210,8 @@ class Simulation:
     def generate_immigrant(self):
         individual = Individual(self)
         individual.genotype = self.__immigrants_genotype
-        if self.__relatedness != 0:
-            self.__pedigree.add_individual(individual)
+        # if self.__relatedness != 0:
+        #     self.__pedigree.add_individual(individual)
         return individual
 
 
@@ -301,15 +301,6 @@ class Simulation:
             new_individual.sire = reproducers[0].id
             new_individual.dam = reproducers[1].id
             new_individual.genotype = new_individual_genotype
-
-            temp_10 = len(survivors_population)
-            temp_0 = self.current_generation
-            temp_1 = new_individual.id
-            temp_a = reproducers[0].ancestry
-            temp_b = reproducers[1].ancestry
-            temp_c = reproducers[0].id
-            temp_d = reproducers[1].id
-
             for generation in range(len(new_individual.ancestry)):
                 if generation == 0:
                     new_individual.ancestry[generation] = [reproducers[0].id, reproducers[1].id]
@@ -318,8 +309,8 @@ class Simulation:
             temp_e = new_individual.ancestry
             # print(temp_1, temp_e)
             new_population.append(new_individual)
-            if self.__relatedness != 0:
-                self.__pedigree.add_individual(new_individual)
+            # if self.__relatedness != 0:
+            #     self.__pedigree.add_individual(new_individual)
             self.__newest_ind_id = new_individual.id
 
         # Replace all the previous population if the lifespan is 1
@@ -368,53 +359,17 @@ class Simulation:
                 self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
 
     def pass_generation(self):
-        # print()
-        print(f'GENERATION {self.current_generation} BEGINS')
-        # for i in self.__population:
-        #     print('A', i.id, i.ancestry)
-
         self.save_generation_data(0)
-        # print('Save generation data')
-        # for i in self.__population:
-        #     print('B', i.id, i.ancestry)
-
         self.assign_individuals_survival_probability()
-        # print('Assign individuals survival probability')
-        # for i in self.__population:
-        #     print('C', i.id, i.ancestry)
-
         self.group_individuals()
-        # print('Groups individuals')
-        # for i in self.__population:
-        #     print('D', i.id, i.ancestry)
-
-        if self.__relatedness != 0:
-            model.selection(self.groups, self.__pedigree)
-        else:
-            model.selection(self.groups)
-        # print('Model selection')
-        # for i in self.__population:
-        #     print('E', i.id, i.ancestry)
-
-        self.selection_event()
-        # print('Selection event')
-        # for i in self.__population:
-        #     print('F', i.id, i.ancestry)
-
-        self.reproduce()
-        # print('Reproduce')
-        # for i in self.__population:
-        #     print('G', i.id, i.ancestry)
-        # Data after selection event
-        self.save_generation_data(1)
-        # print('Save generation data')
-        # for i in self.__population:
-        #     print('H', i.id, i.ancestry)
         # if self.__relatedness != 0:
-        #     self.__pedigree.trim_kinship_matrix(self.__last_ind_id)
+        #     model.selection(self.groups, self.__pedigree)
+        # else:
+        #     model.selection(self.groups)
+        self.selection_event()
+        self.reproduce()
+        self.save_generation_data(1)
         self.__generation += 1
-        # print(self.__pedigree.kinship.count_nonzero())
-        # print(self.__pedigree.kinship.data.nbytes)
 
 
 class Individual:
@@ -557,14 +512,14 @@ def simulator_main():
 
     # Progress bar
     bar_msg = 'Simulation progress: '
-    # cols = get_terminal_size().columns - len(bar_msg)
+    cols = get_terminal_size().columns - len(bar_msg)
     bar_char = '█'
     bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(generations):
         simulation.pass_generation()
-        # progress = cols*i/generations
-        # print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
-        #       ' ' * (cols - int(progress) - 1), end='')
+        progress = cols*i/generations
+        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+              ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):
