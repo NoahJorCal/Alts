@@ -5,9 +5,8 @@ import re
 import random
 import itertools
 from configparser import ConfigParser
-import numpy as np
 
-# from grm import Pedigree
+from grm import Pedigree
 
 # Import general configuration
 general_config = ConfigParser()
@@ -37,7 +36,6 @@ class Simulation:
             model,
             selection_group_size,
             survival_range,
-            relatedness,
             altruism_cost_benefit,
             altruism_probability,):
         self.__population_size = population_size
@@ -55,7 +53,6 @@ class Simulation:
         self.__survival_range = survival_range
         self.__survival_rate_mean = 0
         self.__survivors_per_generation = []
-        self.__relatedness = relatedness
         self.__altruism_cost_benefit = altruism_cost_benefit
         self.__altruism_probability = altruism_probability
         ''' First list of the summary is survivors per generation and second the number of individuals
@@ -63,9 +60,6 @@ class Simulation:
         self.__simulation_summary = [[], []]
         self.__alleles_combinations_indexes = []
         self.__newest_ind_id = 0
-        # if self.__relatedness != 0:
-        #     self.__pedigree = Pedigree(self.__population_size)
-        #     self.__last_ind_id = 0
 
         for gene in model_config.sections():
             if gene != 'module':
@@ -210,8 +204,6 @@ class Simulation:
     def generate_immigrant(self):
         individual = Individual(self)
         individual.genotype = self.__immigrants_genotype
-        # if self.__relatedness != 0:
-        #     self.__pedigree.add_individual(individual)
         return individual
 
 
@@ -309,8 +301,6 @@ class Simulation:
             temp_e = new_individual.ancestry
             # print(temp_1, temp_e)
             new_population.append(new_individual)
-            # if self.__relatedness != 0:
-            #     self.__pedigree.add_individual(new_individual)
             self.__newest_ind_id = new_individual.id
 
         # Replace all the previous population if the lifespan is 1
@@ -362,10 +352,7 @@ class Simulation:
         self.save_generation_data(0)
         self.assign_individuals_survival_probability()
         self.group_individuals()
-        # if self.__relatedness != 0:
-        #     model.selection(self.groups, self.__pedigree)
-        # else:
-        #     model.selection(self.groups)
+        model.selection(self.groups)
         self.selection_event()
         self.reproduce()
         self.save_generation_data(1)
@@ -498,7 +485,6 @@ def simulator_main():
     immigration_phenotype = general_config['population']['immigration_phenotype'].replace(' ', '').split(',')
     selection_group_size = int(general_config['population']['selection_group_size'])
     survival_range = [float(perc) for perc in re.split(',\s*', general_config['population']['survival_range'])]
-    relatedness = float(general_config['population']['relatedness'])
     altruism_cost_benefit = [float(general_config['population']['altruism_cost']),
                              float(general_config['population']['altruism_benefit'])]
     altruism_probability = float(general_config['population']['altruism_probability'])
@@ -507,7 +493,7 @@ def simulator_main():
     simulation = Simulation(population_size, generations, lifespan,
                             emigration, immigration, immigration_phenotype,
                             model, selection_group_size, survival_range,
-                            relatedness, altruism_cost_benefit, altruism_probability)
+                            altruism_cost_benefit, altruism_probability)
     simulation.populate()
 
     # Progress bar

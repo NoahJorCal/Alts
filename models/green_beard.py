@@ -3,6 +3,8 @@
 import random
 from configparser import ConfigParser
 
+from relatedness import relatedness_coefficient
+
 general_config = ConfigParser()
 general_config.read('config.ini')
 
@@ -23,12 +25,16 @@ def selection(groups, pedigree = None):
                     group_wo_altruist.pop(group.index(individual))
                     possible_recipients = group_wo_altruist.copy()
                     # Non-altruistic individuals are removed from the list
-                    if pedigree:
+                    if relatedness > 0:
                         ''' If some amount of relatedness is needed to act altruistic,
                         the possible recipients are also filtered by relatedness '''
                         for possible_recipient in group_wo_altruist[::-1]:
-                            if possible_recipient.phenotype[1] != 'beard' or \
-                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                            ancestry_1 = [[possible_recipient.id]]
+                            ancestry_1.extend(possible_recipient.ancestry)
+                            ancestry_2 = [[individual.id]]
+                            ancestry_2.extend(individual.ancestry)
+                            relatedness_coef = relatedness_coefficient(ancestry_1, ancestry_2)
+                            if possible_recipient.phenotype[1] != 'beard' or relatedness_coef > relatedness:
                                 possible_recipients.pop(group_wo_altruist.index(possible_recipient))
                     else:
                         for possible_recipient in group_wo_altruist[::-1]:
@@ -46,12 +52,16 @@ def selection(groups, pedigree = None):
                     group_wo_altruist = group.copy()
                     group_wo_altruist.pop(group.index(individual))
                     possible_recipients = group_wo_altruist.copy()
-                    if pedigree:
+                    if relatedness > 0:
                         ''' If some amount of relatedness is needed to act altruistic,
                         the possible recipients are also filtered by relatedness '''
                         for possible_recipient in group_wo_altruist[::-1]:
-                            if possible_recipient.phenotype[1] != 'beard' or \
-                                    pedigree.relatedness([possible_recipient.id, individual.id]) < relatedness:
+                            ancestry_1 = [[possible_recipient.id]]
+                            ancestry_1.extend(possible_recipient.ancestry)
+                            ancestry_2 = [[individual.id]]
+                            ancestry_2.extend(individual.ancestry)
+                            relatedness_coef = relatedness_coefficient(ancestry_1, ancestry_2)
+                            if possible_recipient.phenotype[1] != 'beard' or relatedness_coef > relatedness:
                                 possible_recipients.pop(group_wo_altruist.index(possible_recipient))
                     else:
                         for possible_recipient in group_wo_altruist[::-1]:
