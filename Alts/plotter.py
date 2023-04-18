@@ -5,11 +5,11 @@ import argparse
 
 from matplotlib import pyplot as plt
 
-parser = argparse.ArgumentParser(description = 'Plot results from alts.py script')
-parser.add_argument('-i', '--input', default = 'result.alt', help = 'Input file where data will be extracted')
-parser.add_argument('-d', '--display', action = 'store_true', help = 'Display the plots in popup windows, they will be '
-                                                                     'saved .png if -q or --quiet is not used')
-parser.add_argument('-q', '--quiet', action = 'store_false', help = 'Avoid saving the plots as .png files')
+parser = argparse.ArgumentParser(description='Plot results from alts.py script')
+parser.add_argument('-i', '--input', default='result.alt', help='Input file where data will be extracted')
+parser.add_argument('-d', '--display', action='store_true', help='Display the plots in popup windows, they will be '
+                                                                 'saved .png if -q or --quiet is not used')
+parser.add_argument('-q', '--quiet', action='store_false', help='Avoid saving the plots as .png files')
 args = parser.parse_args()
 
 
@@ -78,13 +78,13 @@ def simulation_plot():
     survivors_plot = plt.figure(2)
     legend_phenotypes.append('total')
     for count in range(len(survivors_means)):
-        plt.plot(survivors_means[count], label = legend_phenotypes[count], color = colour_map[count])
+        plt.plot(survivors_means[count], label=legend_phenotypes[count], color=colour_map[count])
     plt.margins(0)
-    plt.ylim((0,population_size))
+    plt.ylim((0, population_size))
     plt.title('Survivors per generation by phenotype')
     plt.xlabel('Generation')
     plt.ylabel('Number of individuals')
-    plt.legend(loc = 'upper right')
+    plt.legend(loc='upper right')
 
     if args.quiet:
         plt.savefig('survivors_plot.png')
@@ -92,7 +92,7 @@ def simulation_plot():
     # Line plot of the proportion of selfish individuals in every simulation
     individual_survivors_plot = plt.figure(3)
     for simulation in all_simulations_summary:
-        plt.plot(simulation, color = 'black', linewidth = 0.5)
+        plt.plot(simulation, color='black', linewidth=0.5)
     plt.margins(0)
     plt.ylim(0, 1)
     plt.title('Selfish individuals per simulation')

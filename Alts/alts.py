@@ -62,7 +62,6 @@ def run_simulation(
 def create_simulation_results():
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
     generation_x = range(int(general_config['simulation']['generations']) + 1)
-    population_size = int(general_config['population']['size'])
     round_count = 0
     print(f'Running first round of {args.cpu} simulations...')
     mean_simulation_duration = 0
@@ -133,7 +132,7 @@ def create_simulation_results():
     print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
           f'{round((perf_counter() - start_time)/60,2)} minutes in total')
 
-    return population_size, dict_phenotypes_combinations_indexes, dict_phenotype_options, \
+    return dict_phenotypes_combinations_indexes, dict_phenotype_options, \
         survivors_simulations_summary, total_simulations_summary, survivors_means, \
         proportions_means, all_simulations_summary
 
