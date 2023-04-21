@@ -1,6 +1,10 @@
 import pytest
-from Alts.simulator import Simulation
-from Alts.simulator import Individual
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..'))
+from simulator import Simulation
+from simulator import Individual
 
 ### Individual object of simulator.py with single_gene_green_beard model (sggb) ###
 ''' Letter code of test fixtures' names

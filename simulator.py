@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from os import path, get_terminal_size
+import sys
 import re
 import random
 from typing import List, Any
@@ -7,17 +8,19 @@ from typing import List, Any
 import numpy
 import itertools
 from configparser import ConfigParser
-import os
+
+# Add the models directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), 'models'))
 
 # Import general configuration
 general_config = ConfigParser()
-config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
+config_path = path.join(path.dirname(__file__), 'config.ini')
 general_config.read(config_path)
 
 # Import model configuration
 model_config = ConfigParser()
-model_config.read(path.join(os.path.dirname(__file__), 'models', general_config['simulation']['model'] + '.ini'))
-py_module = 'models.' + model_config['module']['name']
+model_config.read(path.join(path.dirname(__file__), 'models', general_config['simulation']['model'] + '.ini'))
+py_module = model_config['module']['name']
 model_module = __import__(py_module, fromlist=[''])
 
 
@@ -567,15 +570,15 @@ def simulator_main():
     simulation.populate_groups()
 
     # Progress bar
-    # bar_msg = 'Simulation progress: '
-    # cols = get_terminal_size().columns - len(bar_msg)
-    # bar_char = '█'
-    # bar_end_chars = ' ▏▎▍▌▋▊▉'
+    bar_msg = 'Simulation progress: '
+    cols = get_terminal_size().columns - len(bar_msg)
+    bar_char = '█'
+    bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(simulation.generations):
         simulation.pass_generation()
-    #     progress = cols*i/generations
-    #     print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
-    #           ' ' * (cols - int(progress) - 1), end='')
+        progress = cols*i/generations
+        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+              ' ' * (cols - int(progress) - 1), end='')
 
     # Rounds the values of the proportions of individuals per phenotype
     for phenotype_index in range(len(simulation.simulation_summary[1])):

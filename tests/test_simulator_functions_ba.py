@@ -1,9 +1,23 @@
 import pytest
-from Alts.simulator import Simulation
-from Alts.simulator import Individual
+from os import path
+import sys
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..'))
+from simulator import Simulation
+from simulator import Individual
 import random
 import numpy as np
 
+
+## Add the alts directory to the Python path
+#sys.path.append(path.join(path.dirname(__file__), '..'))
+
+##model_config.read(path.join(path.dirname(__file__), 'models', general_config['simulation']['model'] + '.ini'))
+#alts_simulator = path.join(path.dirname(__file__), '..')
+#model_module = __import__('simulator', fromlist=['Simulation', 'Individual'])
+
+#Simulation = model_module.Simulation
+#Individual = model_module.Individual
 
 # [0        #0:  Generations in the simulation (First generation is number 0)
 #  1,       #1:  Number of groups in the population

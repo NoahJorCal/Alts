@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 import random
 from configparser import ConfigParser
-import os
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..'))
 
 from relatedness import relatedness_coefficient
 
 general_config = ConfigParser()
-config_path = os.path.join(os.path.dirname(__file__), '..', 'config.ini')
+config_path = path.join(path.dirname(__file__), '..', 'config.ini')
 general_config.read(config_path)
 
 benefit_relatedness_ratio_config = float(general_config['population']['benefit_relatedness_ratio'])
@@ -18,9 +21,6 @@ maximum_cost_config = float(general_config['population']['maximum_cost'])
 def get_possible_recipients(altruist, group):
     possible_recipients = group.copy()
     possible_recipients.pop(group.index(altruist))
-    for possible_recipient in possible_recipients[::-1]:
-        if possible_recipient.phenotype[0] != 'altruistic':
-            possible_recipients.pop(possible_recipients.index(possible_recipient))
     return possible_recipients
 
 

@@ -1,4 +1,8 @@
 import pytest
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..'))
 from relatedness import relatedness_coefficient
 
 

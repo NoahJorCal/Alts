@@ -1,12 +1,16 @@
 import random
 import pytest
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..', '..'))
 import numpy as np
 from random import randint
-from Alts.simulator import Simulation
-from Alts.simulator import Individual
-from Alts.models import blind_altruism
-from Alts.models import single_gene_green_beard
-from Alts.models import green_beard
+from simulator import Simulation
+from simulator import Individual
+from models import blind_altruism
+from models import single_gene_green_beard
+from models import green_beard
 
 
 @pytest.fixture(scope='function')
