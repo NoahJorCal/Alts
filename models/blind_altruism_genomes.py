@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 import random
 from configparser import ConfigParser
-import os
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..'))
 
 from relatedness import relatedness_coefficient
 
 general_config = ConfigParser()
-config_path = os.path.join(os.path.dirname(__file__), '..', 'config.ini')
+config_path = path.join(path.dirname(__file__), '..', 'config.ini')
 general_config.read(config_path)
 
 benefit_relatedness_ratio_config = float(general_config['population']['benefit_relatedness_ratio'])

@@ -1,6 +1,7 @@
 import random
 
 import pytest
+<<<<<<<< HEAD:models/tests/test_model_genome.py
 from random import randint
 import sys
 from os import path
@@ -10,6 +11,19 @@ sys.path.append(path.join(path.dirname(__file__), '..', '..'))
 from simulator import Simulation
 from simulator import Individual
 from models import blind_altruism_genomes
+========
+import sys
+from os import path
+# Add the alts directory to the Python path
+sys.path.append(path.join(path.dirname(__file__), '..', '..'))
+import numpy as np
+from random import randint
+from simulator import Simulation
+from simulator import Individual
+from models import blind_altruism
+from models import single_gene_green_beard
+from models import green_beard
+>>>>>>>> 03cf5dcab502c502ce0e28170acd2e0fff7f5da5:models/tests/test_model.py
 
 
 @pytest.fixture(scope='function')
