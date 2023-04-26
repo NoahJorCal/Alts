@@ -137,6 +137,27 @@ def test_generate_phenotype_c_ba(base_general_configuration, c_model_configurati
     assert individual.phenotype == expected_phenotype
 
 
+@pytest.mark.parametrize('genotype', [
+    ([['altruistic', 'altruistic'], ['neutral', 'neutral']])
+])
+def test_generate_genome(genotype, base_general_configuration, ba_dom_model_configuration):
+    simulation = Simulation(*base_general_configuration, ba_dom_model_configuration)
+    individual = Individual(simulation)
+    individual.genotype = genotype
+    individual.generate_genome()
+    result_genotype = []
+    empty_snvs = True
+    for locus in individual.genome.loci:
+        region = []
+        for chromosome in locus.chromosomes:
+            region.append(chromosome.allele)
+            if chromosome.snvs:
+                empty_snvs = False
+        result_genotype.append(region)
+    assert result_genotype == genotype
+    assert empty_snvs
+
+
 def test_age_individual_ba(sd_model_configuration):
     general_configuration = [9, 1, 50, 0, 0, 0, 0, None, 8, 0, 1, 3, 10]
     simulation = Simulation(*general_configuration, sd_model_configuration)

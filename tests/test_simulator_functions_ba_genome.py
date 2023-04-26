@@ -1,3 +1,4 @@
+import h5py
 import pytest
 import sys
 from os import path
@@ -5,10 +6,6 @@ from os import path
 sys.path.append(path.join(path.dirname(__file__), '..'))
 from simulator import Simulation
 from simulator import Individual
-from simulator import Genome
-from simulator import Locus
-from simulator import Chromosome
-from simulator import SNV
 import random
 import numpy as np
 
@@ -108,6 +105,7 @@ def test_generate_individual_genotype_bag(general_configuration, model_configura
 def test_populate_groups_bag(general_configuration, expected_mean, expected_sd, ba_dom_model_configuration):
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     sizes = []
     for group in simulation.groups:
         sizes.append(len(group))
@@ -115,6 +113,38 @@ def test_populate_groups_bag(general_configuration, expected_mean, expected_sd, 
     sd = np.std(sizes)
     assert mean == pytest.approx(expected_mean, rel=0.15)
     assert sd == pytest.approx(expected_sd, rel=0.15)
+
+
+def test_save_generation_0_data(ba_dom_model_configuration):
+    np.random.seed(665416)
+    random.seed(665416)
+    general_configuration = [1, 2, 10, 0, 0, 0, 0, None, 10, 0, 1, 3, 10]
+    simulation = Simulation(*general_configuration, ba_dom_model_configuration)
+    simulation.populate_groups()
+    simulation.save_generation_data()
+    for i in range(1):
+        simulation.pass_generation()
+    with h5py.File('simulation_output.h5', 'a') as f:
+        survivors = list(f['generation_0/survivors'][:])
+        group_0 = list(f['generation_0/group'][:])
+        group_1 = list(f['generation_1/group'][:])
+        phenotype_0 = list(f['generation_0/phenotype'][:])
+        phenotype_1 = list(f['generation_1/phenotype'][:])
+        locus_neutral_0 = list(f['generation_0/locus_neutral'][:])
+        locus_neutral_1 = list(f['generation_1/locus_neutral'][:])
+        locus_behaviour_0 = list(f['generation_0/locus_behaviour'][:])
+        locus_behaviour_1 = list(f['generation_1/locus_behaviour'][:])
+    expected_survivors = list(np.ones(20))
+    expected_group = list(np.concatenate((np.zeros(10), np.ones(10))))
+    expected_locus_neutral = list(np.zeros(40))
+    expected_locus_behaviour = list(np.array([0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1,
+                                              1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0]))
+    expected_phenotype = list(np.array([0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0]))
+    assert survivors == expected_survivors
+    assert group_0 == group_1 == expected_group
+    assert locus_neutral_0 == locus_neutral_1 == expected_locus_neutral
+    assert locus_behaviour_0 == locus_behaviour_1 == expected_locus_behaviour
+    assert phenotype_0 == phenotype_1 == expected_phenotype
 
 
 @pytest.mark.parametrize('general_configuration, expected_deaths', [
@@ -125,6 +155,7 @@ def test_populate_groups_bag(general_configuration, expected_mean, expected_sd, 
 def test_selection_event_bag(general_configuration, expected_deaths, ba_dom_model_configuration):
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     initial_inds_per_group = []
     for group in simulation.groups:
         initial_inds_per_group.append(len(group))
@@ -202,6 +233,7 @@ def test_emigration_bag(general_configuration, ba_dom_model_configuration):
     # random.seed(588786)
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     initial_population_size = 0
     for group in simulation.groups:
         initial_population_size += len(group)
@@ -227,6 +259,7 @@ def test_immigration_bag(general_configuration, ba_dom_model_configuration):
     # random.seed(313951)
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     initial_phenotypes = {"['selfish', 'neutral']": 0,
                           "['altruistic', 'neutral']": 0}
     for group_i in range(len(simulation.groups)):
@@ -252,73 +285,6 @@ def test_immigration_bag(general_configuration, ba_dom_model_configuration):
         for ind in group:
             result_phenotypes[str(ind.phenotype)] += 1
     assert result_phenotypes == expected_phenotypes
-
-
-@pytest.mark.parametrize('crossovers, snvs_lists, expected_snvs', [
-    ([0.317834, 0.864235],
-     [[SNV(0.145689), SNV(0.368904), SNV(0.398149), SNV(0.678918), SNV(0.918726)],
-     [SNV(0.125613), SNV(0.236673), SNV(0.286352), SNV(0.362346), SNV(0.743542)]],
-     [[0.145689, 0.362346, 0.743542, 0.918726],
-     [0.125613, 0.236673, 0.286352, 0.368904, 0.398149, 0.678918]]),
-    ([0.472436, 0.823462, 0.458345, 0.612478, 0.492346],
-     [[SNV(0.145689), SNV(0.152345), SNV(0.172341), SNV(0.216233), SNV(0.262347)],
-     [SNV(0.283414), SNV(0.294523), SNV(0.367234), SNV(0.398172), SNV(0.437593)]],
-     [[0.145689, 0.152345, 0.172341, 0.216233, 0.262347],
-      [0.283414, 0.294523, 0.367234, 0.398172, 0.437593]]),
-    ([0.7435421, 0.996172, 0.146234, 0.362346, 0.916752],
-     [[SNV(0.145689), SNV(0.184245), SNV(0.523686), SNV(0.912552), SNV(0.918726)],
-     [SNV(0.274513), SNV(0.583425), SNV(0.592345), SNV(0.834525)]],
-     [[0.145689, 0.274513, 0.523686, 0.834525, 0.918726],
-     [0.184245, 0.583425, 0.592345, 0.912552]]),
-])
-def test_recombination_bag(crossovers, snvs_lists, expected_snvs):
-    chromosomes = []
-    for snvs_list in snvs_lists:
-        chrom = Chromosome('neutral')
-        chrom.snvs = snvs_list
-        chromosomes.append(chrom)
-    locus = Locus(chromosomes, 'neutral', 1000, 0, 0.001)
-    locus.recombine(crossovers=crossovers)
-    result_snvs = [[snvs.position for snvs in chromosome.snvs] for chromosome in locus.chromosomes]
-    assert result_snvs == expected_snvs
-
-
-@pytest.mark.parametrize('locus_size, mutation_rate, expected_mutations', [
-    (1000, 0, 0),
-    (1000, 0.001, 1),
-    (10000, 0.001, 9),
-])
-def test_mutate_chromosome_bag(locus_size, mutation_rate, expected_mutations):
-    np.random.seed(909848)
-    random.seed(909848)
-    chromosome = Chromosome('neutral')
-    chromosome.mutate(locus_size, mutation_rate)
-    snvs = [snv.position for snv in chromosome.snvs]
-    is_ordered = all(snvs[i] <= snvs[i + 1] for i in range(len(snvs) - 1))
-    assert len(snvs) == expected_mutations
-    assert is_ordered
-
-
-# @pytest.mark.parametrize('sire_genotype, dam_genotype, expected_genotype', [
-#     ([['altruistic', 'altruistic']], [['altruistic', 'altruistic']], [['altruistic', 'altruistic']]),
-#     ([['altruistic', 'altruistic']], [['selfish', 'selfish']], [['altruistic', 'selfish']]),
-#     ([['altruistic', 'selfish']], [['altruistic', 'selfish']], [['altruistic', 'selfish']]),
-#     ([['selfish', 'selfish']], [['selfish', 'selfish']], [['selfish', 'selfish']])
-# ])
-# def test_generate_offspring_genotype_bag(sire_genotype, dam_genotype, expected_genotype,
-#                                          base_general_configuration, ba_dom_model_configuration):
-#     np.random.seed(221317)
-#     random.seed(221317)
-#     simulation = Simulation(*base_general_configuration, ba_dom_model_configuration)
-#     sire = Individual(simulation)
-#     sire.genotype = sire_genotype
-#     dam = Individual(simulation)
-#     dam.genotype = dam_genotype
-#
-#     descendant = Individual(simulation)
-#
-#     simulation.generate_offspring_genome([sire, dam], descendant)
-#     assert descendant.genotype == expected_genotype
 
 
 @pytest.mark.parametrize('sire_genotype, dam_genotype, expected_genotype', [
@@ -399,6 +365,7 @@ def test_discard_old_individuals_bag(ba_dom_model_configuration):
     general_configuration = [0, 1, 5000, 0, 0, 0, 0, None, 20, 2, 1, 3, 10]
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     gen_of_death = []
     for i in range(80):
         start_inds = len(simulation.groups[0])
@@ -420,6 +387,7 @@ def test_reproduce_bag(ba_dom_model_configuration):
     general_configuration = [0, 1, 10, 0, 0, 0, 0, None, 10, 0, 0.5, 3, 10]
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     simulation.selection_event()
     # Last ind will die of old age but will leave offspring
     simulation.groups[0][-1].life_expectancy = 1
@@ -454,6 +422,7 @@ def test_group_exchange_bag(general_configuration, ba_dom_model_configuration):
 
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     initial_population_size = 0
     for group in simulation.groups:
         initial_population_size += len(group)
@@ -486,6 +455,31 @@ def test_generations_bag(ba_dom_model_configuration):
     general_configuration = [9, 1, 50, 0, 0, 0, 0, None, 1, 0, 1, 3, 10]
     simulation = Simulation(*general_configuration, ba_dom_model_configuration)
     simulation.populate_groups()
+    simulation.save_generation_data()
     for i in range(simulation.generations):
         simulation.pass_generation()
     assert simulation.current_generation == 10
+
+
+def test_save_haplotypes(ba_haplotypes_model_configuration):
+    # np.random.seed(245079)
+    # random.seed(245079)
+    general_configuration = [2, 1, 10, 0, 0, 0, 0, None, 1, 0, 1, 3, 10]
+    simulation = Simulation(*general_configuration, ba_haplotypes_model_configuration)
+    simulation.populate_groups()
+    simulation.save_generation_data()
+    for i in range(3):
+        simulation.pass_generation()
+    result_haplotypes = simulation.save_haplotypes()
+    haplotypes_in_result = True
+    for ind in simulation.groups[0]:
+        for locus, locus_index in zip(ind.genome.loci, range(len(ind.genome.loci))):
+            for chromosome in locus.chromosomes:
+                if tuple(chromosome.snvs_to_sequence(locus.locus_size)) not in result_haplotypes[locus_index]:
+                    haplotypes_in_result = False
+                    break
+            if not haplotypes_in_result:
+                break
+        if not haplotypes_in_result:
+            break
+    assert haplotypes_in_result

@@ -19,7 +19,7 @@ def base_general_configuration():
             1,     # 8:  Mean life expectancy
             0,     # 9:  Standard deviation of the life expectancy
             1,     # 10: Survival probability assigned to each individual at the beginning of the generation
-            3,     # 11: Generations taking into account in individuals' ancestry
+            3,     # 11: Generations taken into account in individuals' ancestry
             10]    # 12: Size of the genome
 
 
@@ -36,7 +36,7 @@ def one_group_general_configuration():
             100,   # 8:  Mean life expectancy
             0,     # 9:  Standard deviation of the life expectancy
             0.5,   # 10: Survival probability assigned to each individual at the beginning of the generation
-            3,     # 11: Generations taking into account in individuals' ancestry
+            3,     # 11: Generations taken into account in individuals' ancestry
             10]    # 12: Size of the genome
 
 
@@ -70,6 +70,22 @@ def ba_cod_model_configuration():
                         'locus_size': '0',                    # Size of the loci for mutation and recombination
                         'mutation_rate': '0',                 # Mutation probability on a position of the genome
                         'recombination_rate': '0'}            # Recombination probability on a position of the genome
+            }
+
+
+@pytest.fixture()
+def ba_haplotypes_model_configuration():
+    return {'module': {'name': 'blind_altruism_genomes'},     # Model name
+            'behaviour': {'alleles': 'selfish > altruistic',  # Locus's alleles and inheritance pattern
+                          'initial_frequencies': '0.5, 0.5',  # Initial allele's frequencies in order of appearance
+                          'locus_size': '10',                 # Size of the loci for mutation and recombination
+                          'mutation_rate': '0.1',             # Mutation probability on a position of the genome
+                          'recombination_rate': '0.1'},       # Recombination probability on a position of the genome
+            'neutral': {'alleles': 'neutral > neutral',       # Locus's alleles and inheritance pattern
+                        'initial_frequencies': '0.5, 0.5',    # Initial allele's frequencies in order of appearance
+                        'locus_size': '10',                   # Size of the loci for mutation and recombination
+                        'mutation_rate': '0.1',               # Mutation probability on a position of the genome
+                        'recombination_rate': '0.1'}          # Recombination probability on a position of the genome
             }
 
 

@@ -1,14 +1,29 @@
 #!/usr/bin/python3
+import warnings
 from os import path, get_terminal_size
 import re
 import random
 import bisect
 
-import numpy
+import h5py
+import numpy as np
 from scipy.stats import poisson
 import itertools
+import argparse
 from configparser import ConfigParser
 import os
+
+# Argument parser
+parser = argparse.ArgumentParser(prog='Alts simulator',
+                                 description='Main simulation of Alts program')
+parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals information'
+                                                                           ' in each generation')
+args = parser.parse_args()
+output_file_name = vars(args)['output']
+if '.h5' not in output_file_name and '.hdf5' not in output_file_name and \
+   '.h5p' not in output_file_name and '.he5' not in output_file_name and \
+   '.h5m' not in output_file_name and '.h5z' not in output_file_name:
+    output_file_name += '.h5'
 
 # Import general configuration
 general_config = ConfigParser()
@@ -20,6 +35,10 @@ model_config = ConfigParser()
 model_config.read(path.join(os.path.dirname(__file__), 'models', general_config['simulation']['model'] + '.ini'))
 py_module = 'models.' + model_config['module']['name']
 model_module = __import__(py_module, fromlist=[''])
+
+
+def print_name_type(name, obj):
+    print(name, type(obj))
 
 
 def delete_random_elems(input_list, n):
@@ -67,10 +86,21 @@ class Chromosome:
         return self.__allele
 
     def mutate(self, locus_size, mutation_rate):
-        mean_mutations = round(mutation_rate * locus_size)
+        mean_mutations = mutation_rate * locus_size
         mutations = poisson.rvs(mean_mutations)
         for mutation in range(mutations):
             bisect.insort(self.__snvs, SNV(random.random()))
+
+    def snvs_to_sequence(self, locus_size):
+        mutations = [round(snv.position * locus_size) for snv in self.__snvs]
+        sequence = np.zeros(locus_size)
+        for mutation in mutations:
+            if mutation != locus_size:
+                if sequence[mutation] == 1 and mutation + 1 != locus_size:
+                    sequence[mutation + 1] = 1
+                else:
+                    sequence[mutation] = 1
+        return sequence
 
 
 class Locus:
@@ -106,7 +136,7 @@ class Locus:
         return self.__recombination_rate
 
     def recombine(self, crossovers=None):
-        mean_crossovers = round(self.__recombination_rate * self.__locus_size)
+        mean_crossovers = self.__recombination_rate * self.__locus_size
         if not crossovers:
             number_crossovers = poisson.rvs(mean_crossovers)
             crossovers = [random.random() for _ in range(number_crossovers)]
@@ -143,12 +173,21 @@ class Genome:
             locus_names.append(locus.name)
         return locus_names
 
+    def haplotype(self):
+        full_haplotype = []
+        for locus in self.__loci:
+            locus_haplotype = []
+            for chromosome in locus.chromosomes:
+                locus_haplotype.append(chromosome.snvs_to_sequence(locus.locus_size))
+            full_haplotype.append(locus_haplotype)
+        return tuple(full_haplotype)
+
 
 class Individual:
     def __init__(self, simulation):
         self.__simulation = simulation
         self.__age = 0
-        self.__life_expectancy = round(numpy.random.normal(simulation.life_expectancy, simulation.life_expectancy_sd))
+        self.__life_expectancy = round(np.random.normal(simulation.life_expectancy, simulation.life_expectancy_sd))
         if self.__life_expectancy == 0:
             self.__life_expectancy = 1
 
@@ -313,12 +352,7 @@ class Simulation:
         self.__genome_size = genome_size
         self.__model_config_dict = model_config_dict
         self.__loci_properties = {}
-        # self.__survival_rate_mean = 0
-        self.__survivors_per_generation = []
-        ''' First list of the summary is survivors per generation and second the number of individuals
-        at the beginning of a generation '''
-        self.__simulation_summary = [[], []]
-        self.__alleles_combinations_indexes = []
+        self.__alleles_combinations = []
         self.__newest_ind_id = 0
         for locus in self.__model_config_dict.keys():
             if locus != 'module':
@@ -358,7 +392,7 @@ class Simulation:
                 self.__loci_properties[locus] = (allele_options, initial_frequencies_ranges)
 
         # Saving allele combinations of the different loci and their order
-        alleles_combinations_indexes = {}
+        # alleles_combinations =
         all_alleles = []
         for locus in self.loci:
             # [locus][0] are the locus's alleles
@@ -368,8 +402,8 @@ class Simulation:
             allele_combination_name = ''
             for element in all_alleles_combinations[i]:
                 allele_combination_name += element + '&'
-            alleles_combinations_indexes[allele_combination_name[:-1]] = i
-        self.__alleles_combinations_indexes = alleles_combinations_indexes
+            if allele_combination_name[:-1] not in self.__alleles_combinations:
+                self.__alleles_combinations.append(allele_combination_name[:-1])
 
         if self.__immigration != 0:
             if type(self.__immigration_phenotype) == str:
@@ -377,7 +411,9 @@ class Simulation:
             self.__immigrants_genotype = []
             if len(self.loci) != len(self.__immigration_phenotype):
                 raise Exception('Incorrect number of phenotypes specified for immigrants')
-            for allele in self.__immigration_phenotype:
+            for allele, locus_i in zip(self.__immigration_phenotype, range(len(self.__immigration_phenotype))):
+                if allele not in self.__loci_properties[self.loci[locus_i]][0]:
+                    raise Exception(f'{allele} invalid immigrant phenotype in locus {self.loci[locus_i]}')
                 self.__immigrants_genotype.append([allele, allele])
 
     @property
@@ -433,14 +469,6 @@ class Simulation:
         return list(self.__loci_properties.keys())
 
     @property
-    def simulation_summary(self):
-        return self.__simulation_summary
-
-    @simulation_summary.setter
-    def simulation_summary(self, value):
-        self.__simulation_summary = value
-
-    @property
     def dict_allele_options(self):
         alleles = {}
         for locus in self.loci:
@@ -449,8 +477,8 @@ class Simulation:
         return alleles
 
     @property
-    def alleles_combinations_indexes(self):
-        return self.__alleles_combinations_indexes
+    def alleles_combinations(self):
+        return self.__alleles_combinations
 
     @property
     def newest_ind_id(self):
@@ -481,9 +509,11 @@ class Simulation:
         return allele_pairs
 
     def populate_groups(self):
+        with h5py.File(output_file_name, 'w') as _:
+            pass
         for group_i in range(self.__group_number):
             group = []
-            group_size_normal = round(numpy.random.normal(self.__group_size, self.__group_size_sd))
+            group_size_normal = round(np.random.normal(self.__group_size, self.__group_size_sd))
             for ind_i in range(group_size_normal):
                 individual = Individual(self)
                 individual.genotype = self.generate_individual_genotype()
@@ -494,18 +524,25 @@ class Simulation:
 
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
-        self.__survivors_per_generation = []
-        survival_probabilities = []
-        for group in self.__groups:
-            survivors_groups = []
-            for individual in group:
-                survival_probabilities.append(individual.survival_probability)
-                picker = random.random()
-                if picker < individual.survival_probability:
-                    survivors_groups.append(individual)
-            self.__survivors_per_generation.append(survivors_groups)
-        self.__groups = self.__survivors_per_generation
-        # self.__survival_rate_mean = sum(survival_probabilities)/len(survival_probabilities)
+        with h5py.File(output_file_name, 'a') as f:
+            survivors = []
+            survived = np.zeros(0)
+            survived_list_index = 0
+            for group in self.__groups:
+                survivors_groups = []
+                # noinspection PyTypeChecker
+                survived.resize(survived_list_index + len(group))
+                for ind_i in range(len(group)):
+                    picker = random.random()
+                    if picker < group[ind_i].survival_probability:
+                        survivors_groups.append(group[ind_i])
+                        survived[survived_list_index + ind_i] = 1
+                    else:
+                        survived[survived_list_index + ind_i] = 0
+                survivors.append(survivors_groups)
+                survived_list_index += len(group)
+            self.__groups = survivors
+            f[f'generation_{self.current_generation}'].create_dataset('survivors', data=survived)
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
@@ -546,6 +583,9 @@ class Simulation:
                 # The chromosome that contains the inherited locus is selected at random
                 chromosome = random.choice(locus.chromosomes)
                 if locus.mutation_rate != 0:
+                    if locus.mutation_rate * locus.locus_size == 0:
+                        warnings.warn(f'Mutation rate times locus size is equal to 0 in locus {locus.name}, '
+                                      f'there will be no mutations')
                     chromosome.mutate(locus.locus_size, locus.mutation_rate)
                 chromosomes.append(chromosome)
                 genotype[locus_index].append(chromosome.allele)
@@ -584,14 +624,19 @@ class Simulation:
     def reproduce(self):
         new_groups = self.discard_old_individuals()
         for group, group_index in zip(self.__groups, range(len(self.__groups))):
-            group_size_normal = numpy.random.normal(self.__group_size, self.__group_size_sd)
+            group_size_normal = np.random.normal(self.__group_size, self.__group_size_sd)
             while len(new_groups[group_index]) < group_size_normal:
+                if len(group) < 2:
+                    break
                 reproducers = random.sample(group, 2)
                 new_individual = Individual(self)
                 self.generate_offspring_genome(reproducers, new_individual)
                 self.generate_offspring_ancestry(reproducers, new_individual)
                 self.__newest_ind_id = new_individual.id
+                # noinspection PyTypeChecker
                 new_groups[group_index].append(new_individual)
+            if len(group) < 2:
+                break
         self.__groups = new_groups
 
     def group_exchange(self):
@@ -608,54 +653,68 @@ class Simulation:
             new_groups[group_index].extend(self.__groups[group_index])
         self.__groups = new_groups
 
-    def save_generation_data(self, simulation_state):
-        """ Possible alleles are added in a list, if more than 1 locus is considered all allele combinations
-        will also be added """
-        combined_phenotypes_list = list(self.__alleles_combinations_indexes.keys())
-        # Proportion of individuals per phenotype before selection event
-        if simulation_state == 0:
-            # On the first generation, the simulation summary object is initialized
-            if self.current_generation == 0:
-                summary = [0 for _ in range(self.generations)]
-                for i in range(len(combined_phenotypes_list)):
-                    self.__simulation_summary[0].append(summary.copy())
-                    self.__simulation_summary[1].append(summary.copy())
-            # Find index of individual's phenotype
-            population_size = nested_len(self.__groups)
+    def save_generation_data(self):
+        with h5py.File(output_file_name, 'a') as f:
+            # The h5 file will have a group for each generation and inside that group,
+            # a group for each group of the population
+            generation_group = f.create_group(f'generation_{self.current_generation}')
+            loci_alleles = []
+            for locus_i in range(len(self.loci)):
+                loci_alleles.append(self.__loci_properties[self.loci[locus_i]][0])
+            groups = np.zeros(0)
+            phenotypes = np.zeros(0)
+            genotypes = []
+            for _ in self.loci:
+                genotypes.append(np.zeros(0))
+            individuals_list_index = 0
+            alleles_list_index = 0
             for group in self.__groups:
-                for individual in group:
-                    match_indexes = list(range(len(combined_phenotypes_list)))
-                    for phenotype in individual.phenotype:
-                        new_match_indexes = []
-                        for index in match_indexes:
-                            combination = combined_phenotypes_list[index]
-                            if re.search(r'(?:&|^)('+phenotype+')(?:&|$)', combination):
-                                new_match_indexes.append(index)
-                        match_indexes = new_match_indexes
-                    self.__simulation_summary[1][match_indexes[0]][self.current_generation] += 1/population_size
-
-        # Survivors per generation (after selection event)
-        if simulation_state == 1:
-            for individual in self.__survivors_per_generation:
-                match_indexes = list(range(len(combined_phenotypes_list)))
-                for phenotype in individual.phenotype:
-                    new_match_indexes = []
-                    for index in match_indexes:
-                        allele = combined_phenotypes_list[index]
-                        if re.search(r'(?:&|^)('+phenotype+')(?:&|$)', allele):
-                            new_match_indexes.append(index)
-                    match_indexes = new_match_indexes
-                self.__simulation_summary[0][match_indexes[0]][self.current_generation] += 1
+                # noinspection PyTypeChecker
+                phenotypes.resize(individuals_list_index + len(group))
+                # noinspection PyTypeChecker
+                groups.resize(individuals_list_index + len(group))
+                for i in range(len(self.loci)):
+                    # noinspection PyTypeChecker
+                    genotypes[i].resize(alleles_list_index + (len(group) * 2))
+                genotypes_index = 0
+                for ind_i in range(len(group)):
+                    phenotypes[individuals_list_index + ind_i] = self.__alleles_combinations.index(
+                        '&'.join(group[ind_i].phenotype))
+                    groups[individuals_list_index + ind_i] = self.__groups.index(group)
+                    for allele_i in range(2):
+                        for locus_i in range(len(self.loci)):
+                            genotypes[locus_i][alleles_list_index + genotypes_index] = loci_alleles[locus_i].index(
+                                group[ind_i].genotype[locus_i][allele_i])
+                        genotypes_index += 1
+                individuals_list_index += len(group)
+                alleles_list_index += len(group) * 2
+            generation_group.create_dataset('group', data=groups)
+            generation_group.create_dataset('phenotype', data=phenotypes)
+            for locus_i in range(len(self.loci)):
+                generation_group.create_dataset(f'locus_{self.loci[locus_i]}', data=genotypes[locus_i])
 
     def pass_generation(self):
-        # self.save_generation_data(0)
         model_module.selection(self.groups)
         self.selection_event()
         self.migration()
         self.reproduce()
         self.group_exchange()
-        # self.save_generation_data(1)
         self.__generation += 1
+        self.save_generation_data()
+
+    def save_haplotypes(self):
+        haplotypes_set = [set() for _ in self.loci]
+        for group in self.__groups:
+            for individual in group:
+                loci = individual.genome.loci
+                for locus_index in range(len(self.loci)):
+                    for chromosome in loci[locus_index].chromosomes:
+                        chrom_haplotype = chromosome.snvs_to_sequence(loci[locus_index].locus_size)
+                        haplotypes_set[locus_index].add(tuple(chrom_haplotype))
+        haplotypes = []
+        for haplotype_set in haplotypes_set:
+            haplotypes.append(np.array(list(haplotype_set)))
+        return haplotypes
 
 
 def simulator_main():
@@ -681,6 +740,15 @@ def simulator_main():
         genome_size = int(genome_size[:-1]) * 1000000
     else:
         raise Exception(f"{units.group(0)} invalid in genome_size")
+    # output = {'phenotypes_pgen': general_config['output']['phenotypes_pgen'],
+    #           'survivors_pgr_pgen': general_config['output']['survivors_pgr_pgen'],
+    #           'selfish_inds_proportion_asim': general_config['output']['selfish_inds_proportion_asim'],
+    #           'selfish_alleles_proportion_asim': general_config['output']['selfish_alleles_proportion_asim'],
+    #           'allele_proportions_pgen': general_config['output']['allele_proportions_pgen'],
+    #           'survivors_pgen': general_config['output']['survivors_pgen'],
+    #           'altruist_selfish_ratio_pgen': general_config['output']['altruist_selfish_ratio_pgen'],
+    #           'haplotypes': general_config['output']['haplotypes']}
+
     model_config_dict = {s: dict(model_config.items(s)) for s in model_config.sections()}
 
     simulation = Simulation(generations,
@@ -698,6 +766,7 @@ def simulator_main():
                             genome_size,
                             model_config_dict)
     simulation.populate_groups()
+    simulation.save_generation_data()
 
     # Progress bar
     bar_msg = 'Simulation progress: '
@@ -710,13 +779,13 @@ def simulator_main():
         print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
               ' ' * (cols - int(progress) - 1), end='')
 
-    # Rounds the values of the proportions of individuals per phenotype
-    for phenotype_index in range(len(simulation.simulation_summary[1])):
-        for generation_index in range(len(simulation.simulation_summary[1][phenotype_index])):
-            simulation.simulation_summary[1][phenotype_index][generation_index] = \
-                round(simulation.simulation_summary[1][phenotype_index][generation_index], 5)
+    haplotypes = simulation.save_haplotypes()
+    with h5py.File(output_file_name, 'a') as f:
+        for locus_i in range(len(simulation.loci)):
+            f.create_dataset(f'haplotypes_{simulation.loci[locus_i]}', data=haplotypes[locus_i])
+        # f.visititems(print_name_type)
 
-    return simulation.simulation_summary, simulation.alleles_combinations_indexes, simulation.dict_allele_options
+    return output_file_name
 
 
 if __name__ == '__main__':

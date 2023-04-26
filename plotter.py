@@ -54,7 +54,7 @@ def simulation_plot():
         colour_map = ["#51bfe8ff", "#e74848ff"]
         plt.stackplot(generation_x, proportions_means, labels = legend_phenotypes, colors = colour_map)
     plt.margins(0)
-    plt.ylim(0,1)
+    plt.ylim(0, 1)
     plt.title('Proportion of individuals by phenotype')
     plt.xlabel('Generation')
     plt.ylabel('Proportion of individuals')
