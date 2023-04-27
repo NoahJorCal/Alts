@@ -13,17 +13,24 @@ import argparse
 from configparser import ConfigParser
 import os
 
-# Argument parser
-parser = argparse.ArgumentParser(prog='Alts simulator',
-                                 description='Main simulation of Alts program')
-parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals information'
-                                                                           ' in each generation')
-args = parser.parse_args()
-output_file_name = vars(args)['output']
-if '.h5' not in output_file_name and '.hdf5' not in output_file_name and \
-   '.h5p' not in output_file_name and '.he5' not in output_file_name and \
-   '.h5m' not in output_file_name and '.h5z' not in output_file_name:
-    output_file_name += '.h5'
+if __name__ == '__main__':
+    # Argument parser
+    parser = argparse.ArgumentParser(prog='Alts simulator',
+                                     description='Main simulation of Alts program')
+    parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
+                                                                               'information in each generation')
+    parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulation')
+
+    args = parser.parse_args()
+    global_output_file_name = vars(args)['output']
+    if '.h5' not in global_output_file_name and '.hdf5' not in global_output_file_name and \
+       '.h5p' not in global_output_file_name and '.he5' not in global_output_file_name and \
+       '.h5m' not in global_output_file_name and '.h5z' not in global_output_file_name:
+        global_output_file_name += '.h5'
+    seed = vars(args)['seed']
+    if seed:
+        random.seed(seed)
+        np.random.seed(seed)
 
 # Import general configuration
 general_config = ConfigParser()
@@ -333,7 +340,9 @@ class Simulation:
             survival_probability,
             ancestry_generations,
             genome_size,
-            model_config_dict):
+            model_config_dict,
+            simulation_index=0,
+            output_file_name='simulation_output.h5'):
         self.__generations = generations + 1
         self.__group_number = group_number
         self.__group_size = group_size
@@ -354,6 +363,8 @@ class Simulation:
         self.__loci_properties = {}
         self.__alleles_combinations = []
         self.__newest_ind_id = 0
+        self.__simulation_index = simulation_index
+        self.__output_file_name = output_file_name
         for locus in self.__model_config_dict.keys():
             if locus != 'module':
                 incorrect_character = re.search(r'[^\w\s=>]', self.__model_config_dict[locus]['alleles'])
@@ -509,8 +520,15 @@ class Simulation:
         return allele_pairs
 
     def populate_groups(self):
-        with h5py.File(output_file_name, 'w') as _:
-            pass
+        if __name__ == '__main__':
+            with h5py.File(self.__output_file_name, 'w') as f:
+                f.create_group(f'simulation_{self.__simulation_index}')
+        elif __name__ != '__main__' and self.__simulation_index == 0:
+            with h5py.File(self.__output_file_name, 'w') as f:
+                f.create_group(f'simulation_{self.__simulation_index}')
+        else:
+            with h5py.File(self.__output_file_name, 'a') as f:
+                f.create_group(f'simulation_{self.__simulation_index}')
         for group_i in range(self.__group_number):
             group = []
             group_size_normal = round(np.random.normal(self.__group_size, self.__group_size_sd))
@@ -524,7 +542,8 @@ class Simulation:
 
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
-        with h5py.File(output_file_name, 'a') as f:
+        with h5py.File(self.__output_file_name, 'a') as f:
+
             survivors = []
             survived = np.zeros(0)
             survived_list_index = 0
@@ -542,7 +561,7 @@ class Simulation:
                 survivors.append(survivors_groups)
                 survived_list_index += len(group)
             self.__groups = survivors
-            f[f'generation_{self.current_generation}'].create_dataset('survivors', data=survived)
+            f[f'simulation_{self.__simulation_index}/generation_{self.current_generation}'].create_dataset('survivors', data=survived)
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
@@ -654,10 +673,10 @@ class Simulation:
         self.__groups = new_groups
 
     def save_generation_data(self):
-        with h5py.File(output_file_name, 'a') as f:
+        with h5py.File(self.__output_file_name, 'a') as f:
             # The h5 file will have a group for each generation and inside that group,
             # a group for each group of the population
-            generation_group = f.create_group(f'generation_{self.current_generation}')
+            generation_group = f[f'simulation_{self.__simulation_index}'].create_group(f'generation_{self.current_generation}')
             loci_alleles = []
             for locus_i in range(len(self.loci)):
                 loci_alleles.append(self.__loci_properties[self.loci[locus_i]][0])
@@ -690,6 +709,7 @@ class Simulation:
                 alleles_list_index += len(group) * 2
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
+            generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
             for locus_i in range(len(self.loci)):
                 generation_group.create_dataset(f'locus_{self.loci[locus_i]}', data=genotypes[locus_i])
 
@@ -714,10 +734,13 @@ class Simulation:
         haplotypes = []
         for haplotype_set in haplotypes_set:
             haplotypes.append(np.array(list(haplotype_set)))
-        return haplotypes
+
+        with h5py.File(self.__output_file_name, 'a') as f:
+            for locus_i in range(len(self.loci)):
+                f.create_dataset(f'simulation_{self.__simulation_index}/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
 
 
-def simulator_main():
+def simulator_main(output_file_name, simulation_index):
     generations = int(general_config['simulation']['generations'])
     group_number = int(general_config['population']['group_number'])
     group_size = int(general_config['population']['group_size'])
@@ -740,14 +763,6 @@ def simulator_main():
         genome_size = int(genome_size[:-1]) * 1000000
     else:
         raise Exception(f"{units.group(0)} invalid in genome_size")
-    # output = {'phenotypes_pgen': general_config['output']['phenotypes_pgen'],
-    #           'survivors_pgr_pgen': general_config['output']['survivors_pgr_pgen'],
-    #           'selfish_inds_proportion_asim': general_config['output']['selfish_inds_proportion_asim'],
-    #           'selfish_alleles_proportion_asim': general_config['output']['selfish_alleles_proportion_asim'],
-    #           'allele_proportions_pgen': general_config['output']['allele_proportions_pgen'],
-    #           'survivors_pgen': general_config['output']['survivors_pgen'],
-    #           'altruist_selfish_ratio_pgen': general_config['output']['altruist_selfish_ratio_pgen'],
-    #           'haplotypes': general_config['output']['haplotypes']}
 
     model_config_dict = {s: dict(model_config.items(s)) for s in model_config.sections()}
 
@@ -764,7 +779,9 @@ def simulator_main():
                             survival_probability,
                             ancestry_generations,
                             genome_size,
-                            model_config_dict)
+                            model_config_dict,
+                            simulation_index,
+                            output_file_name)
     simulation.populate_groups()
     simulation.save_generation_data()
 
@@ -779,14 +796,17 @@ def simulator_main():
         print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
               ' ' * (cols - int(progress) - 1), end='')
 
-    haplotypes = simulation.save_haplotypes()
+    simulation.save_haplotypes()
     with h5py.File(output_file_name, 'a') as f:
-        for locus_i in range(len(simulation.loci)):
-            f.create_dataset(f'haplotypes_{simulation.loci[locus_i]}', data=haplotypes[locus_i])
-        # f.visititems(print_name_type)
+        f.attrs['simulations'] = simulation_index + 1
+        f.attrs['generations'] = generations + 1
+        f.attrs['loci'] = len(simulation.loci)
 
     return output_file_name
 
 
 if __name__ == '__main__':
-    simulator_main()
+    # Across-threads counter for output file
+    simulation_i = 0
+    simulator_main(global_output_file_name, simulation_i)
+
