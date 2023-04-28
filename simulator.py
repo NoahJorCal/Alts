@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+import multiprocessing
+import time
 import warnings
 from os import path, get_terminal_size
 import re
@@ -13,24 +15,25 @@ import argparse
 from configparser import ConfigParser
 import os
 
-if __name__ == '__main__':
-    # Argument parser
-    parser = argparse.ArgumentParser(prog='Alts simulator',
-                                     description='Main simulation of Alts program')
-    parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
-                                                                               'information in each generation')
-    parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulation')
+# if __name__ == '__main__':
+# Argument parser
+parser = argparse.ArgumentParser(prog='Alts simulator',
+                                 description='Main simulation of Alts program')
+parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
+                                                                           'information in each generation')
+parser.add_argument('-c', '--cpus', default=1, type=int, help='Number of simultaneous workers')
+parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulation')
 
-    args = parser.parse_args()
-    global_output_file_name = vars(args)['output']
-    if '.h5' not in global_output_file_name and '.hdf5' not in global_output_file_name and \
-       '.h5p' not in global_output_file_name and '.he5' not in global_output_file_name and \
-       '.h5m' not in global_output_file_name and '.h5z' not in global_output_file_name:
-        global_output_file_name += '.h5'
-    seed = vars(args)['seed']
-    if seed:
-        random.seed(seed)
-        np.random.seed(seed)
+args = parser.parse_args()
+global_output_file_name = args.output
+if '.h5' not in global_output_file_name and '.hdf5' not in global_output_file_name and \
+   '.h5p' not in global_output_file_name and '.he5' not in global_output_file_name and \
+   '.h5m' not in global_output_file_name and '.h5z' not in global_output_file_name:
+    global_output_file_name += '.h5'
+seed = args.seed
+if seed:
+    random.seed(seed)
+    np.random.seed(seed)
 
 # Import general configuration
 general_config = ConfigParser()
@@ -519,6 +522,20 @@ class Simulation:
             allele_pairs.append(alleles)
         return allele_pairs
 
+    def generate_group(self):
+        s = time.perf_counter()
+        group = []
+        group_size_normal = round(np.random.normal(self.__group_size, self.__group_size_sd))
+        for ind_i in range(group_size_normal):
+            individual = Individual(self)
+            individual.genotype = self.generate_individual_genotype()
+            individual.generate_genome()
+            self.__newest_ind_id = individual.id
+            group.append(individual)
+        e = time.perf_counter()
+        # print('group', e-s)
+        return group
+
     def populate_groups(self):
         if __name__ == '__main__':
             with h5py.File(self.__output_file_name, 'w') as f:
@@ -529,39 +546,36 @@ class Simulation:
         else:
             with h5py.File(self.__output_file_name, 'a') as f:
                 f.create_group(f'simulation_{self.__simulation_index}')
-        for group_i in range(self.__group_number):
-            group = []
-            group_size_normal = round(np.random.normal(self.__group_size, self.__group_size_sd))
-            for ind_i in range(group_size_normal):
-                individual = Individual(self)
-                individual.genotype = self.generate_individual_genotype()
-                individual.generate_genome()
-                self.__newest_ind_id = individual.id
-                group.append(individual)
-            self.__groups.append(group)
+        with multiprocessing.Pool(processes=args.cpus) as pool:
+            st = time.perf_counter()
+            self.__groups = pool.starmap(self.generate_group, [() for _ in range(self.__group_number)])
+            en = time.perf_counter()
+            # print('populate_groups', en-st)
+
+    def group_selection_event(self, group):
+        survived = np.zeros(len(group))
+        survivors_groups = []
+        for ind_i in range(len(group)):
+            picker = random.random()
+            if picker < group[ind_i].survival_probability:
+                survivors_groups.append(group[ind_i])
+                survived[ind_i] = 1
+            else:
+                survived[ind_i] = 0
+        return survived, group
 
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
         with h5py.File(self.__output_file_name, 'a') as f:
-
-            survivors = []
+            with multiprocessing.Pool(processes=args.cpus) as pool:
+                result = pool.map(self.group_selection_event, self.__groups)
+            self.__groups = result[1]
             survived = np.zeros(0)
-            survived_list_index = 0
-            for group in self.__groups:
-                survivors_groups = []
-                # noinspection PyTypeChecker
-                survived.resize(survived_list_index + len(group))
-                for ind_i in range(len(group)):
-                    picker = random.random()
-                    if picker < group[ind_i].survival_probability:
-                        survivors_groups.append(group[ind_i])
-                        survived[survived_list_index + ind_i] = 1
-                    else:
-                        survived[survived_list_index + ind_i] = 0
-                survivors.append(survivors_groups)
-                survived_list_index += len(group)
-            self.__groups = survivors
-            f[f'simulation_{self.__simulation_index}/generation_{self.current_generation}'].create_dataset('survivors', data=survived)
+            for group_result in result:
+                survived = np.concatenate((survived, group_result[0]))
+            f[f'simulation_{self.__simulation_index}/generation_{self.current_generation}'].create_dataset(
+                'survivors', data=survived)
+            # print(f[f'simulation_{self.__simulation_index}/generation_{self.current_generation}']['survivors'][:])
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
@@ -672,41 +686,43 @@ class Simulation:
             new_groups[group_index].extend(self.__groups[group_index])
         self.__groups = new_groups
 
+    def save_group_data(self, group):
+        loci_alleles = []
+        for locus_i in range(len(self.loci)):
+            loci_alleles.append(self.__loci_properties[self.loci[locus_i]][0])
+
+        groups = np.zeros(len(group))
+        phenotypes = np.zeros(len(group))
+        genotypes = [np.zeros(len(group) * 2) for _ in range(len(self.loci))]
+        genotypes_index = 0
+        for ind_i in range(len(group)):
+            groups[ind_i] = self.__groups.index(group)
+            phenotypes[ind_i] = self.__alleles_combinations.index('&'.join(group[ind_i].phenotype))
+
+            for allele_i in range(2):
+                for locus_i in range(len(self.loci)):
+                    genotypes[locus_i][genotypes_index] = loci_alleles[locus_i].index(
+                        group[ind_i].genotype[locus_i][allele_i])
+                genotypes_index += 1
+        return groups, phenotypes, genotypes
+
     def save_generation_data(self):
         with h5py.File(self.__output_file_name, 'a') as f:
             # The h5 file will have a group for each generation and inside that group,
             # a group for each group of the population
-            generation_group = f[f'simulation_{self.__simulation_index}'].create_group(f'generation_{self.current_generation}')
-            loci_alleles = []
-            for locus_i in range(len(self.loci)):
-                loci_alleles.append(self.__loci_properties[self.loci[locus_i]][0])
+            generation_group = f[f'simulation_{self.__simulation_index}'].create_group(
+                f'generation_{self.current_generation}')
+            with multiprocessing.Pool(processes=args.cpus) as pool:
+                result = pool.map(self.save_group_data, self.__groups)
             groups = np.zeros(0)
             phenotypes = np.zeros(0)
-            genotypes = []
-            for _ in self.loci:
-                genotypes.append(np.zeros(0))
-            individuals_list_index = 0
-            alleles_list_index = 0
-            for group in self.__groups:
-                # noinspection PyTypeChecker
-                phenotypes.resize(individuals_list_index + len(group))
-                # noinspection PyTypeChecker
-                groups.resize(individuals_list_index + len(group))
-                for i in range(len(self.loci)):
-                    # noinspection PyTypeChecker
-                    genotypes[i].resize(alleles_list_index + (len(group) * 2))
-                genotypes_index = 0
-                for ind_i in range(len(group)):
-                    phenotypes[individuals_list_index + ind_i] = self.__alleles_combinations.index(
-                        '&'.join(group[ind_i].phenotype))
-                    groups[individuals_list_index + ind_i] = self.__groups.index(group)
-                    for allele_i in range(2):
-                        for locus_i in range(len(self.loci)):
-                            genotypes[locus_i][alleles_list_index + genotypes_index] = loci_alleles[locus_i].index(
-                                group[ind_i].genotype[locus_i][allele_i])
-                        genotypes_index += 1
-                individuals_list_index += len(group)
-                alleles_list_index += len(group) * 2
+            genotypes = [np.zeros(0), np.zeros(0)]
+            for group_result in result:
+                groups = np.concatenate((groups, group_result[0]))
+                phenotypes = np.concatenate((phenotypes, group_result[1]))
+                genotypes[0] = np.concatenate((genotypes[0], group_result[2][0]))
+                genotypes[1] = np.concatenate((genotypes[1], group_result[2][1]))
+
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
             generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
@@ -782,31 +798,40 @@ def simulator_main(output_file_name, simulation_index):
                             model_config_dict,
                             simulation_index,
                             output_file_name)
+
+    start_ = time.perf_counter()
     simulation.populate_groups()
     simulation.save_generation_data()
+    simulation.selection_event()
+    end_ = time.perf_counter()
+    # print(end_ - start_)
 
-    # Progress bar
-    bar_msg = 'Simulation progress: '
-    cols = get_terminal_size().columns - len(bar_msg)
-    bar_char = '█'
-    bar_end_chars = ' ▏▎▍▌▋▊▉'
-    for i in range(generations):
-        simulation.pass_generation()
-        progress = cols*i/generations
-        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
-              ' ' * (cols - int(progress) - 1), end='')
+    # simulation.save_generation_data()
+    #
+    # # Progress bar
+    # bar_msg = 'Simulation progress: '
+    # cols = get_terminal_size().columns - len(bar_msg)
+    # bar_char = '█'
+    # bar_end_chars = ' ▏▎▍▌▋▊▉'
+    # for i in range(generations):
+    #     simulation.pass_generation()
+    #     progress = cols*i/generations
+    #     print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+    #           ' ' * (cols - int(progress) - 1), end='')
 
-    simulation.save_haplotypes()
-    with h5py.File(output_file_name, 'a') as f:
-        f.attrs['simulations'] = simulation_index + 1
-        f.attrs['generations'] = generations + 1
-        f.attrs['loci'] = len(simulation.loci)
+    # simulation.save_haplotypes()
+    # with h5py.File(output_file_name, 'a') as f:
+    #     f.attrs['simulations'] = simulation_index + 1
+    #     f.attrs['generations'] = generations + 1
+    #     f.attrs['loci'] = len(simulation.loci)
 
     return output_file_name
 
 
 if __name__ == '__main__':
     # Across-threads counter for output file
-    simulation_i = 0
-    simulator_main(global_output_file_name, simulation_i)
+    start = time.perf_counter()
+    simulator_main(global_output_file_name, 0)
+    end = time.perf_counter()
+    print(end-start)
 

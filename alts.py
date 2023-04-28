@@ -27,8 +27,9 @@ general_config.read('config.ini')
 start_time = perf_counter()
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output file where data will be stored')
-parser.add_argument('-c', '--cpu', default=1, type=int, help='Number of simultaneous workers')
+parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
+                                                                           'information in each generation')
+parser.add_argument('-c', '--cpus', default=1, type=int, help='Number of simultaneous workers')
 args = parser.parse_args()
 
 
