@@ -27,9 +27,8 @@ general_config.read('config.ini')
 start_time = perf_counter()
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
-                                                                           'information in each generation')
-parser.add_argument('-c', '--cpus', default=1, type=int, help='Number of simultaneous workers')
+parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output file where data will be stored')
+parser.add_argument('-c', '--cpu', default=1, type=int, help='Number of simultaneous workers')
 args = parser.parse_args()
 
 
@@ -44,19 +43,8 @@ def run_simulation(
     data_file = simulator_main(args.output, simulation_index)
     simulation_duration = perf_counter() - start_counter
 
-    # phenotypes = list(dict_phenotypes_combinations_indexes.keys())
-    # selfish_indexes = []
-    # # Only selfish individuals, if other genes are present they are ignored
-    # single_simulations_summary = [0 for generation in generation_x]
-    # for phenotype_index in range(len(phenotypes)):
-    #     if re.search('(?:&|^)(selfish)(?:&|$)', phenotypes[phenotype_index]):
-    #         selfish_indexes.append(phenotype_index)
-    # # Counts of selfish vs non-selfish individuals
-    # for phenotype in selfish_indexes:
-    #     single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
-
-    # print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds.'
-    #       f'Running round {round_count + 1} with {args.cpus} simulations...')
+    print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds.'
+          f'Running round {round_count + 1} with {args.cpu} simulations...')
 
     returns[worker_index] = (data_file, simulation_duration)
 
@@ -66,17 +54,17 @@ def create_simulation_results():
     generation_x = range(int(general_config['simulation']['generations']) + 1)
     simulation_iter = itertools.count()
     round_count = 0
-    # print(f'Running first round of {args.cpus} simulations...')
+    print(f'Running first round of {args.cpu} simulations...')
     mean_simulation_duration = 0
 
-    if args.cpus > os.cpu_count():
+    if args.cpu > os.cpu_count():
         raise CPUError()
 
-    for i in range(int(number_of_simulations/args.cpus + 0.5)):
-        workers = [None] * args.cpus
-        returns = [None] * args.cpus
+    for i in range(int(number_of_simulations/args.cpu + 0.5)):
+        workers = [None] * args.cpu
+        returns = [None] * args.cpu
         # The workers are initialized to run one simulation each
-        for worker_index in range(args.cpus):
+        for worker_index in range(args.cpu):
             simulation_index = next(simulation_iter)
             worker = threading.Thread(
                 target=run_simulation,
@@ -102,9 +90,9 @@ def create_simulation_results():
 
     ''' The minimum number of simulations will be the number given, but if there will be free CPUs,
     more simulations will be run '''
-    number_of_simulations = (int(number_of_simulations/args.cpus + 0.5)) * args.cpus
+    number_of_simulations = (int(number_of_simulations/args.cpu+0.5))*args.cpu
 
-    # print('\033[K\033[F\033[K\033[F\r')
+    print('\033[K\033[F\033[K\033[F\r')
 
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
     print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '

@@ -61,35 +61,36 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
     return added_cost + cost
 
 
-def selection(group,
+def selection(groups,
               benefit_relatedness_ratio=benefit_relatedness_ratio_config, cost_benefit_ratio=cost_benefit_ratio_config,
               minimum_benefit=minimum_benefit_config, maximum_cost=maximum_cost_config):
 
     if benefit_relatedness_ratio != 0 or minimum_benefit != 0:
-        for individual in group:
-            if individual.phenotype[0] == 'altruistic':
-                possible_recipients = get_possible_recipients(individual, group)
-                if len(possible_recipients) != 0:
-                    added_cost = 0
-                    while maximum_cost > added_cost:
-                        ''' If the new added cost ends up being higher than the maximum cost,
-                        the last interaction will not be reverted, so in some cases,
-                        the individual will have sacrificed more fitness than expected'''
-                        added_cost = altruistic_act(individual, possible_recipients, 1, added_cost,
-                                                    benefit_relatedness_ratio, cost_benefit_ratio,
-                                                    minimum_benefit, maximum_cost)
-                        if len(possible_recipients) == 0:
-                            break
-            elif '_' in individual.phenotype[0]:
-                possible_recipients = get_possible_recipients(individual, group)
-                if len(possible_recipients) != 0:
-                    added_cost = 0
-                    while (maximum_cost * 0.5) > added_cost:
-                        ''' If the new added cost ends up being higher than the maximum cost,
-                        the last interaction will not be reverted, so in some cases,
-                        the individual will have sacrificed more fitness than expected'''
-                        added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
-                                                    benefit_relatedness_ratio, cost_benefit_ratio,
-                                                    minimum_benefit, maximum_cost)
-                        if len(possible_recipients) == 0:
-                            break
+        for group in groups:
+            for individual in group:
+                if individual.phenotype[0] == 'altruistic':
+                    possible_recipients = get_possible_recipients(individual, group)
+                    if len(possible_recipients) != 0:
+                        added_cost = 0
+                        while maximum_cost > added_cost:
+                            ''' If the new added cost ends up being higher than the maximum cost,
+                            the last interaction will not be reverted, so in some cases,
+                            the individual will have sacrificed more fitness than expected'''
+                            added_cost = altruistic_act(individual, possible_recipients, 1, added_cost,
+                                                        benefit_relatedness_ratio, cost_benefit_ratio,
+                                                        minimum_benefit, maximum_cost)
+                            if len(possible_recipients) == 0:
+                                break
+                elif '_' in individual.phenotype[0]:
+                    possible_recipients = get_possible_recipients(individual, group)
+                    if len(possible_recipients) != 0:
+                        added_cost = 0
+                        while (maximum_cost * 0.5) > added_cost:
+                            ''' If the new added cost ends up being higher than the maximum cost,
+                            the last interaction will not be reverted, so in some cases,
+                            the individual will have sacrificed more fitness than expected'''
+                            added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
+                                                        benefit_relatedness_ratio, cost_benefit_ratio,
+                                                        minimum_benefit, maximum_cost)
+                            if len(possible_recipients) == 0:
+                                break
