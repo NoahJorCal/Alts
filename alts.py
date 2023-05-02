@@ -55,8 +55,8 @@ def run_simulation(
     # for phenotype in selfish_indexes:
     #     single_simulations_summary = [sum(x) for x in zip(single_simulations_summary, simulation_summary[1][phenotype])]
 
-    print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds.'
-          f'Running round {round_count + 1} with {args.cpu} simulations...')
+    # print(f'\033[K\033[FRound number {round_count} run in {round(simulation_duration, 2)} seconds.'
+    #       f'Running round {round_count + 1} with {args.cpus} simulations...')
 
     returns[worker_index] = (data_file, simulation_duration)
 
@@ -66,17 +66,17 @@ def create_simulation_results():
     generation_x = range(int(general_config['simulation']['generations']) + 1)
     simulation_iter = itertools.count()
     round_count = 0
-    print(f'Running first round of {args.cpu} simulations...')
+    # print(f'Running first round of {args.cpus} simulations...')
     mean_simulation_duration = 0
 
-    if args.cpu > os.cpu_count():
+    if args.cpus > os.cpu_count():
         raise CPUError()
 
-    for i in range(int(number_of_simulations/args.cpu + 0.5)):
-        workers = [None] * args.cpu
-        returns = [None] * args.cpu
+    for i in range(int(number_of_simulations/args.cpus + 0.5)):
+        workers = [None] * args.cpus
+        returns = [None] * args.cpus
         # The workers are initialized to run one simulation each
-        for worker_index in range(args.cpu):
+        for worker_index in range(args.cpus):
             simulation_index = next(simulation_iter)
             worker = threading.Thread(
                 target=run_simulation,
@@ -102,9 +102,9 @@ def create_simulation_results():
 
     ''' The minimum number of simulations will be the number given, but if there will be free CPUs,
     more simulations will be run '''
-    number_of_simulations = (int(number_of_simulations/args.cpu+0.5))*args.cpu
+    number_of_simulations = (int(number_of_simulations/args.cpus + 0.5)) * args.cpus
 
-    print('\033[K\033[F\033[K\033[F\r')
+    # print('\033[K\033[F\033[K\033[F\r')
 
     mean_simulation_duration = mean_simulation_duration/number_of_simulations
     print(f'\rEach simulation took {round(mean_simulation_duration,2)} seconds on average and '
