@@ -35,14 +35,23 @@ args = parser.parse_args()
 
 def run_simulation(simulation_index):
     start_counter = perf_counter()
-    simulator_main(args.output, simulation_index)
+    aborted = simulator_main(simulation_index)
     simulation_duration = perf_counter() - start_counter
-    print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds.'
-          f'Running next round with {args.cpu} simulations...')
-    return simulation_duration
+    if aborted:
+        print(f'\033[K\033[FSimulation ended because altruism went extinct')
+        return None
+    else:
+        print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds. '
+              f'Running next round with {args.cpu} simulations...')
+        return simulation_duration
 
 
 def create_simulation_results():
+
+    outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
+    if os.path.exists(outputs_dir):
+        shutil.rmtree(outputs_dir)
+
     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
     print(f'Running first round of {args.cpu} simulations...')
 
@@ -52,8 +61,12 @@ def create_simulation_results():
         results = [pool.apply_async(run_simulation, args=(x, )) for x in
                    range(number_of_simulations)]
         output = [p.get() for p in results]
-    print(f'\033[K\033[F\033[KEach simulation took {round(mean(output), 2)} seconds on average and '
-          f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+    output = [i for i in output if i is not None]
+    if output:
+        print(f'\033[K\033[F\033[KEach simulation took {round(mean(output), 2)} seconds on average and '
+              f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+    else:
+        exit('Altruism went extinct in all simulations, no data generated')
 
     def print_name_type(name, obj):
         print(name, type(obj))
@@ -94,10 +107,16 @@ def create_simulation_results():
                     for dataset_name in in_file[group_name]:
                         in_dataset = in_file[group_name][dataset_name]
                         out_subgroup.create_dataset(dataset_name, data=in_dataset)
-    outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
+                out_file.attrs['simulations'] = in_file.attrs['simulations']
+                out_file.attrs['generations'] = in_file.attrs['generations']
+                out_file.attrs['n_loci'] = in_file.attrs['n_loci']
+                out_file.attrs['groups'] = in_file.attrs['groups']
+                out_file.attrs['loci'] = in_file.attrs['loci']
+                out_file.attrs['phenotype_names'] = in_file.attrs['phenotype_names']
+                out_file.attrs['alleles_names'] = in_file.attrs['alleles_names']
     if os.path.exists(outputs_dir):
         shutil.rmtree(outputs_dir)
-    print(f'\033[K\033[F\033[KThe results of all the simulations have been saved in {args.output}\n'
+    print(f'\r\033[F\rThe results of all the simulations have been saved in {args.output}\n'
           f'All intermediate files have been removed')
 
 if __name__ == '__main__':

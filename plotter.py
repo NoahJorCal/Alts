@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import warnings
 from configparser import ConfigParser
 import argparse
 import h5py
@@ -80,8 +81,6 @@ def save_survivors_pgen(survived, generation, simulation, survivors_list):
     survivors_list[simulation][generation] = np.count_nonzero(survived == 1)
 
 
-
-
 def simulation_plot():
     with h5py.File(vars(args)['input'], 'r') as f:
 
@@ -91,9 +90,8 @@ def simulation_plot():
         groups = f.attrs['groups']
         loci = f.attrs['loci']
         alleles_names = []
-        for alleles in f.attrs['alleles_names']:
-            alleles_names.append(np.flip(alleles, axis=0))
-        alleles_names = np.array(alleles_names)
+        for alleles in f.attrs['alleles_names'].translate({ord(i): '' for i in '[, '})[:-2].split(']'):
+            alleles_names.append([x for x in alleles.split('\'')[::-1] if x != ''])
         phenotype_names = np.flip(f.attrs['phenotype_names'], axis=0)
         phenotypes_all = np.zeros((simulations, generations, n_loci))
         # ASSUMING THAT EACH LOCUS HAS TWO ALLELES
@@ -147,6 +145,8 @@ def simulation_plot():
 
     generation_x = np.arange(generations)
 
+    saved_plots = False
+
     if phenotypes_pgen_bool:
         # Stack-plot of the proportion of each phenotype at the beginning of each generation
         phenotypes_plot = plt.figure(1)
@@ -158,6 +158,8 @@ def simulation_plot():
         plt.ylabel('Proportion of individuals')
         plt.legend()
 
+        saved_plots = True
+
     if allele_pgen_bool:
         # Stack-plot of the proportion of each allele at the beginning of each generation
         alleles_plot = plt.figure(2)
@@ -168,6 +170,8 @@ def simulation_plot():
         plt.xlabel('Generation')
         plt.ylabel('Proportion of alleles')
         plt.legend()
+
+        saved_plots = True
 
     if altruist_selfish_ratio_pgen_bool:
         # Stack-plot of the ratio selfish/altruist per generation
@@ -183,6 +187,8 @@ def simulation_plot():
         # plt.ylim(0)
         # plt.legend()
 
+        saved_plots = True
+
     if survivors_pgen_bool:
         survivors_plot = plt.figure(4)
         plt.plot(generation_x, survivors_mean)
@@ -191,9 +197,14 @@ def simulation_plot():
         plt.xlabel('Generation')
         plt.ylabel('Survivors')
 
+        saved_plots = True
+
+    if not saved_plots:
+        warnings.warn('No plots configured for saving in config.ini')
 
     if args.save_plots:
         plt.savefig('proportions_plot.png')
+
     if args.show:
         plt.show()
 

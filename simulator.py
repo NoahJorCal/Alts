@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import shutil
 import time
 import warnings
 from os import path, get_terminal_size
@@ -368,6 +369,7 @@ class Simulation:
         self.__newest_ind_id = 0
         self.__simulation_index = simulation_index
         self.__output_file_name = output_file_name
+        self.__stop = False
         for locus in self.__model_config_dict.keys():
             if locus != 'module':
                 incorrect_character = re.search(r'[^\w\s=>]', self.__model_config_dict[locus]['alleles'])
@@ -504,6 +506,10 @@ class Simulation:
     @property
     def model_config_dict(self):
         return self.__model_config_dict
+
+    @property
+    def stop(self):
+        return self.__stop
 
     # Randomize individual's genotype based on initial locus frequencies
     def generate_individual_genotype(self):
@@ -714,6 +720,15 @@ class Simulation:
                         genotypes_index += 1
                 individuals_list_index += len(group)
                 alleles_list_index += len(group) * 2
+            altruistic_indexes = [i for i, item in enumerate(self.__alleles_combinations) if re.search(
+                r'altruistic', item)]
+            altruists = 0
+            for altruistic_index in altruistic_indexes:
+                altruists += np.count_nonzero(phenotypes == altruistic_index)
+            if altruists <= 10:
+                print(altruists)
+            if not altruists:
+                self.__stop = True
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
             generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
@@ -721,29 +736,13 @@ class Simulation:
                 generation_group.create_dataset(f'locus_{self.loci[locus_i]}', data=genotypes[locus_i])
 
     def pass_generation(self):
-        altruism_start = time.perf_counter()
         model_module.selection(self.groups)
-        altruism_time = time.perf_counter() - altruism_start
-        global_times[0].append(altruism_time)
-        selection_start = time.perf_counter()
         self.selection_event()
-        selection_time = time.perf_counter() - selection_start
-        global_times[1].append(selection_time)
         self.migration()
-        reproduce_start = time.perf_counter()
         self.reproduce()
-        reproduce_time = time.perf_counter() - reproduce_start
-        global_times[2].append(reproduce_time)
         self.group_exchange()
         self.__generation += 1
-        save_start = time.perf_counter()
         self.save_generation_data()
-        save_time = time.perf_counter() - save_start
-        a = self.current_generation
-        global_times[3].append(save_time)
-        if a == 40:
-            b = 1
-
 
     def save_haplotypes(self):
         haplotypes_set = [set() for _ in self.loci]
@@ -764,8 +763,12 @@ class Simulation:
                 f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
 
 
-def simulator_main(output_file_name, simulation_index):
-    os.makedirs(os.path.dirname('outputs/'), exist_ok=True)
+def simulator_main(simulation_index):
+    outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
+    if __name__ == '__main__':
+        if os.path.exists(outputs_dir):
+            shutil.rmtree(outputs_dir)
+    os.makedirs(outputs_dir, exist_ok=True)
     output_file_name = 'outputs/' + 'simulation_' + str(simulation_index) + '.h5'
 
     generations = int(general_config['simulation']['generations'])
@@ -819,8 +822,10 @@ def simulator_main(output_file_name, simulation_index):
     bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(generations):
         simulation.pass_generation()
+        if simulation.stop:
+            return True
         progress = cols*i/generations
-        print('\033[K\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+        print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
               ' ' * (cols - int(progress) - 1), end='')
 
     simulation.save_haplotypes()
@@ -832,7 +837,6 @@ def simulator_main(output_file_name, simulation_index):
     with open('times.txt', 'w') as f:
         f.write(str(global_times))
 
-
     with h5py.File(output_file_name, 'a') as f:
         f.attrs['simulations'] = simulation_index + 1
         f.attrs['generations'] = generations + 1
@@ -840,11 +844,11 @@ def simulator_main(output_file_name, simulation_index):
         f.attrs['groups'] = group_number
         f.attrs['loci'] = simulation.loci
         f.attrs['phenotype_names'] = simulation.alleles_combinations
-        f.attrs['alleles_names'] = alleles_names
+        f.attrs['alleles_names'] = str(alleles_names)
         # print(output_file_name)
         # f.visititems(print_name_type)
 
-    # return output_file_name
+    return False
 
 
 if __name__ == '__main__':
