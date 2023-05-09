@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import time
 import warnings
 from os import path, get_terminal_size
 import re
@@ -13,6 +14,8 @@ import argparse
 from configparser import ConfigParser
 import os
 
+global_times = [[], [], [], []]
+
 if __name__ == '__main__':
     # Argument parser
     parser = argparse.ArgumentParser(prog='Alts simulator',
@@ -22,12 +25,12 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulation')
 
     args = parser.parse_args()
-    global_output_file_name = vars(args)['output']
+    global_output_file_name = args.output
     if '.h5' not in global_output_file_name and '.hdf5' not in global_output_file_name and \
        '.h5p' not in global_output_file_name and '.he5' not in global_output_file_name and \
        '.h5m' not in global_output_file_name and '.h5z' not in global_output_file_name:
         global_output_file_name += '.h5'
-    seed = vars(args)['seed']
+    seed = args.seed
     if seed:
         random.seed(seed)
         np.random.seed(seed)
@@ -403,7 +406,6 @@ class Simulation:
                 self.__loci_properties[locus] = (allele_options, initial_frequencies_ranges)
 
         # Saving allele combinations of the different loci and their order
-        # alleles_combinations =
         all_alleles = []
         for locus in self.loci:
             # [locus][0] are the locus's alleles
@@ -520,15 +522,17 @@ class Simulation:
         return allele_pairs
 
     def populate_groups(self):
-        if __name__ == '__main__':
-            with h5py.File(self.__output_file_name, 'w') as f:
-                f.create_group(f'simulation_{self.__simulation_index}')
-        elif __name__ != '__main__' and self.__simulation_index == 0:
-            with h5py.File(self.__output_file_name, 'w') as f:
-                f.create_group(f'simulation_{self.__simulation_index}')
-        else:
-            with h5py.File(self.__output_file_name, 'a') as f:
-                f.create_group(f'simulation_{self.__simulation_index}')
+        with h5py.File(self.__output_file_name, 'w') as f:
+            pass
+        # if __name__ == '__main__':
+        #     with h5py.File(self.__output_file_name, 'w') as f:
+        #         f.create_group(f'simulation_{self.__simulation_index}')
+        # elif __name__ != '__main__' and self.__simulation_index == 0:
+        #     with h5py.File(self.__output_file_name, 'w') as f:
+        #         f.create_group(f'simulation_{self.__simulation_index}')
+        # else:
+        #     with h5py.File(self.__output_file_name, 'a') as f:
+        #         f.create_group(f'simulation_{self.__simulation_index}')
         for group_i in range(self.__group_number):
             group = []
             group_size_normal = round(np.random.normal(self.__group_size, self.__group_size_sd))
@@ -549,8 +553,8 @@ class Simulation:
             survived_list_index = 0
             for group in self.__groups:
                 survivors_groups = []
-                # noinspection PyTypeChecker
-                survived.resize(survived_list_index + len(group))
+                new_survived_size = survived_list_index + len(group)
+                survived.resize((new_survived_size,), refcheck=False)
                 for ind_i in range(len(group)):
                     picker = random.random()
                     if picker < group[ind_i].survival_probability:
@@ -561,8 +565,8 @@ class Simulation:
                 survivors.append(survivors_groups)
                 survived_list_index += len(group)
             self.__groups = survivors
-            f[f'simulation_{self.__simulation_index}/generation_{self.current_generation}'].create_dataset(
-                'survivors', data=survived)
+            generation_group = f[f'/generation_{str(self.current_generation).zfill(len(str(self.__generations)))}']
+            generation_group.create_dataset( 'survivors', data=survived)
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
@@ -643,19 +647,20 @@ class Simulation:
 
     def reproduce(self):
         new_groups = self.discard_old_individuals()
-        for group, group_index in zip(self.__groups, range(len(self.__groups))):
+        for group_index in range(len(self.__groups)):
             group_size_normal = np.random.normal(self.__group_size, self.__group_size_sd)
             while len(new_groups[group_index]) < group_size_normal:
-                if len(group) < 2:
+                a = len(new_groups[group_index])
+                if len(self.__groups[group_index]) < 2:
                     break
-                reproducers = random.sample(group, 2)
+                reproducers = random.sample(self.__groups[group_index], 2)
                 new_individual = Individual(self)
                 self.generate_offspring_genome(reproducers, new_individual)
                 self.generate_offspring_ancestry(reproducers, new_individual)
                 self.__newest_ind_id = new_individual.id
                 # noinspection PyTypeChecker
                 new_groups[group_index].append(new_individual)
-            if len(group) < 2:
+            if len(self.__groups[group_index]) < 2:
                 break
         self.__groups = new_groups
 
@@ -677,8 +682,8 @@ class Simulation:
         with h5py.File(self.__output_file_name, 'a') as f:
             # The h5 file will have a group for each generation and inside that group,
             # a group for each group of the population
-            generation_group = f[f'simulation_{self.__simulation_index}'].create_group(
-                f'generation_{self.current_generation}')
+            generation_group = f.create_group(
+                f'generation_{str(self.current_generation).zfill(len(str(self.__generations)))}')
             loci_alleles = []
             for locus_i in range(len(self.loci)):
                 loci_alleles.append(self.__loci_properties[self.loci[locus_i]][0])
@@ -690,13 +695,13 @@ class Simulation:
             individuals_list_index = 0
             alleles_list_index = 0
             for group in self.__groups:
-                # noinspection PyTypeChecker
-                phenotypes.resize(individuals_list_index + len(group))
-                # noinspection PyTypeChecker
-                groups.resize(individuals_list_index + len(group))
+                new_phenotypes_size = individuals_list_index + len(group)
+                phenotypes.resize((new_phenotypes_size,), refcheck=False)
+                new_groups_size = individuals_list_index + len(group)
+                groups.resize((new_groups_size,), refcheck=False)
+                new_genotypes_size = alleles_list_index + (len(group) * 2)
                 for i in range(len(self.loci)):
-                    # noinspection PyTypeChecker
-                    genotypes[i].resize(alleles_list_index + (len(group) * 2))
+                    genotypes[i].resize((new_genotypes_size,), refcheck=False)
                 genotypes_index = 0
                 for ind_i in range(len(group)):
                     phenotypes[individuals_list_index + ind_i] = self.__alleles_combinations.index(
@@ -716,13 +721,29 @@ class Simulation:
                 generation_group.create_dataset(f'locus_{self.loci[locus_i]}', data=genotypes[locus_i])
 
     def pass_generation(self):
+        altruism_start = time.perf_counter()
         model_module.selection(self.groups)
+        altruism_time = time.perf_counter() - altruism_start
+        global_times[0].append(altruism_time)
+        selection_start = time.perf_counter()
         self.selection_event()
+        selection_time = time.perf_counter() - selection_start
+        global_times[1].append(selection_time)
         self.migration()
+        reproduce_start = time.perf_counter()
         self.reproduce()
+        reproduce_time = time.perf_counter() - reproduce_start
+        global_times[2].append(reproduce_time)
         self.group_exchange()
         self.__generation += 1
+        save_start = time.perf_counter()
         self.save_generation_data()
+        save_time = time.perf_counter() - save_start
+        a = self.current_generation
+        global_times[3].append(save_time)
+        if a == 40:
+            b = 1
+
 
     def save_haplotypes(self):
         haplotypes_set = [set() for _ in self.loci]
@@ -738,12 +759,15 @@ class Simulation:
             haplotypes.append(np.array(list(haplotype_set)))
 
         with h5py.File(self.__output_file_name, 'a') as f:
+            f.create_group('haplotypes')
             for locus_i in range(len(self.loci)):
-                f.create_dataset(f'simulation_{self.__simulation_index}/haplotypes_{self.loci[locus_i]}',
-                                 data=haplotypes[locus_i])
+                f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
 
 
 def simulator_main(output_file_name, simulation_index):
+    os.makedirs(os.path.dirname('outputs/'), exist_ok=True)
+    output_file_name = 'outputs/' + 'simulation_' + str(simulation_index) + '.h5'
+
     generations = int(general_config['simulation']['generations'])
     group_number = int(general_config['population']['group_number'])
     group_size = int(general_config['population']['group_size'])
@@ -800,12 +824,27 @@ def simulator_main(output_file_name, simulation_index):
               ' ' * (cols - int(progress) - 1), end='')
 
     simulation.save_haplotypes()
+
+    alleles_names = []
+    for locus, alleles in simulation.loci_properties.items():
+        alleles_names.append(alleles[0])
+
+    with open('times.txt', 'w') as f:
+        f.write(str(global_times))
+
+
     with h5py.File(output_file_name, 'a') as f:
         f.attrs['simulations'] = simulation_index + 1
         f.attrs['generations'] = generations + 1
-        f.attrs['loci'] = len(simulation.loci)
+        f.attrs['n_loci'] = len(simulation.loci)
+        f.attrs['groups'] = group_number
+        f.attrs['loci'] = simulation.loci
+        f.attrs['phenotype_names'] = simulation.alleles_combinations
+        f.attrs['alleles_names'] = alleles_names
+        # print(output_file_name)
+        # f.visititems(print_name_type)
 
-    return output_file_name
+    # return output_file_name
 
 
 if __name__ == '__main__':
