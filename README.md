@@ -61,6 +61,9 @@ sudo apt-get install python3
 pip3 install configparser
 pip3 install matplotlib
 pip3 install scipy
+pip3 install h5py
+pip3 install pandas
+pip3 install multiprocessing
 ```
 3. Download [project files](https://github.com/NoahJorCal/Alts/archive/refs/heads/main.zip).
 4. Unzip the file.
@@ -72,6 +75,9 @@ pip3 install scipy
 pip install configparser
 pip install matplotlib
 pip install scipy
+pip install h5py
+pip install pandas
+pip install multiprocessing
 ```
 3. Download [project files](https://github.com/NoahJorCal/Alts/archive/refs/heads/main.zip).
 4. Unzip the file.

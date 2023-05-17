@@ -70,54 +70,40 @@ def create_simulation_results():
 
     def print_name_type(name, obj):
         print(name, type(obj))
-    # output = [p.get() for p in results]
-    # with multiprocessing.Pool(processes=args.cpus) as pool:
-    #     results = [pool.apply_async(run_simulation, args=(x,)) for x in range(5)]
-    #     output = [p.get() for p in results]
-    # with h5py.File('outputs/simulation_0', 'r') as f:
-    #     f.visititems(print_name_type)
-    # with h5py.File('outputs/simulation_1', 'r') as f:
-    #     f.visititems(print_name_type)
-    # with h5py.File('outputs/simulation_2', 'r') as f:
-    #     f.visititems(print_name_type)
-    # with h5py.File('outputs/simulation_3', 'r') as f:
-    #     f.visititems(print_name_type)
-    # with h5py.File('outputs/simulation_4', 'r') as f:
-    #     f.visititems(print_name_type)
-    # print(args.output)
 
-    print(f'Saving all simulations results in {args.output}...')
-    with h5py.File(args.output, 'w') as out_file:
-
-        # Loop through the list of input files
-        for i in range(number_of_simulations):
-
-            # Open the input file in "read" mode
-            with h5py.File(f'outputs/simulation_{i}.h5', 'r') as in_file:
-                # Create a new group for the input file in the output file
-                out_group = out_file.create_group(f'simulation_{i}')
-
-                # Loop through each group in the input file
-                for group_name in in_file:
-
-                    # Create a new group in the output file with the same name as the input group
-                    out_subgroup = out_group.create_group(group_name)
-
-                    # Loop through each dataset in the input group and copy it to the output subgroup
-                    for dataset_name in in_file[group_name]:
-                        in_dataset = in_file[group_name][dataset_name]
-                        out_subgroup.create_dataset(dataset_name, data=in_dataset)
-                out_file.attrs['simulations'] = in_file.attrs['simulations']
-                out_file.attrs['generations'] = in_file.attrs['generations']
-                out_file.attrs['n_loci'] = in_file.attrs['n_loci']
-                out_file.attrs['groups'] = in_file.attrs['groups']
-                out_file.attrs['loci'] = in_file.attrs['loci']
-                out_file.attrs['phenotype_names'] = in_file.attrs['phenotype_names']
-                out_file.attrs['alleles_names'] = in_file.attrs['alleles_names']
-    if os.path.exists(outputs_dir):
-        shutil.rmtree(outputs_dir)
-    print(f'\r\033[F\rThe results of all the simulations have been saved in {args.output}\n'
-          f'All intermediate files have been removed')
+    # print(f'Saving all simulations results in {args.output}...')
+    # with h5py.File(args.output, 'w') as out_file:
+    #
+    #     # Loop through the list of input files
+    #     for i in range(number_of_simulations):
+    #
+    #         # Open the input file in "read" mode
+    #         with h5py.File(f'outputs/simulation_{i}.h5', 'r') as in_file:
+    #             # Create a new group for the input file in the output file
+    #             out_group = out_file.create_group(f'simulation_{i}')
+    #
+    #             # Loop through each group in the input file
+    #             for group_name in in_file:
+    #
+    #                 # Create a new group in the output file with the same name as the input group
+    #                 out_subgroup = out_group.create_group(group_name)
+    #
+    #                 # Loop through each dataset in the input group and copy it to the output subgroup
+    #                 for dataset_name in in_file[group_name]:
+    #                     in_dataset = in_file[group_name][dataset_name]
+    #                     out_subgroup.create_dataset(dataset_name, data=in_dataset)
+    #             out_file.attrs['simulations'] = in_file.attrs['simulations']
+    #             out_file.attrs['generations'] = in_file.attrs['generations']
+    #             out_file.attrs['n_loci'] = in_file.attrs['n_loci']
+    #             out_file.attrs['groups'] = in_file.attrs['groups']
+    #             out_file.attrs['loci'] = in_file.attrs['loci']
+    #             out_file.attrs['phenotype_names'] = in_file.attrs['phenotype_names']
+    #             out_file.attrs['alleles_names'] = in_file.attrs['alleles_names']
+    # if os.path.exists(outputs_dir):
+    #     shutil.rmtree(outputs_dir)
+    # print(f'\r\033[F\rThe results of all the simulations have been saved in {args.output}\n'
+    #       f'All intermediate files have been removed')
+    print('The results of all the simulations have been saved in outputs/ folder')
 
 if __name__ == '__main__':
     create_simulation_results()

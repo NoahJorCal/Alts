@@ -9,6 +9,7 @@ import bisect
 
 import h5py
 import numpy as np
+import pandas as pd
 from scipy.stats import poisson
 import itertools
 import argparse
@@ -22,6 +23,8 @@ global_times = [[],  # discard_old
                 [[] for _ in range(250)]]  # mutation
 
 global_groups = [[0 for _ in range(51)] for _ in range(20)]
+global_altruism_pc = []
+global_survivor_pc = []
 
 if __name__ == '__main__':
     # Argument parser
@@ -73,21 +76,21 @@ def nested_len(nested_list):
     return length
 
 
-class SNV:
-    def __init__(self, position):
-        self.__position = position
-
-    def __lt__(self, snv):
-        return self.__position < snv.position
-
-    @property
-    def position(self):
-        return self.__position
+# class SNV:
+#     def __init__(self, position):
+#         self.__position = position
+#
+#     def __lt__(self, snv):
+#         return self.__position < snv.position
+#
+#     @property
+#     def position(self):
+#         return self.__position
 
 
 class Chromosome:
     def __init__(self, allele):
-        self.__snvs = []
+        self.__snvs = np.array([])
         self.__allele = allele
 
     @property
@@ -104,12 +107,24 @@ class Chromosome:
 
     def mutate(self, locus_size, mutation_rate):
         mean_mutations = mutation_rate * locus_size
-        mutations = poisson.rvs(mean_mutations)
-        for mutation in range(mutations):
-            bisect.insort(self.__snvs, SNV(random.random()))
+        n_mutations = poisson.rvs(mean_mutations)
+        mutations = np.sort([random.random() for _ in range(n_mutations)])
+        mutations_indexes = np.searchsorted(self.__snvs, mutations)
+        self.__snvs = np.insert(self.__snvs, mutations_indexes, mutations)
+        if not list(np.sort(self.__snvs)) == list(self.__snvs):
+            print(np.sort(self.__snvs), self.__snvs)
+            raise Exception
+        # assert np.sort(self.__snvs).all() == self.__snvs.all()
+        # print(self.__snvs)
+        # for mutation in range(mutations):
+        #     bisect.insort(self.__snvs, random.random())
+        #     # print(self.__snvs)
+
+    def snvs_to_positions(self):
+        return np.array([snv.position for snv in self.__snvs])
 
     def snvs_to_sequence(self, locus_size):
-        mutations = [round(snv.position * locus_size) for snv in self.__snvs]
+        mutations = [round(snv * locus_size) for snv in self.__snvs]
         sequence = np.zeros(locus_size)
         for mutation in mutations:
             if mutation != locus_size:
@@ -157,26 +172,22 @@ class Locus:
         if not crossovers:
             number_crossovers = poisson.rvs(mean_crossovers)
             crossovers = [random.random() for _ in range(number_crossovers)]
-        # snvs_0 = self.__chromosomes[0].snvs.copy()
-        # snvs_1 = self.__chromosomes[1].snvs.copy()
         for crossover_point in crossovers:
-            crossover_snv = SNV(crossover_point)
-            crossover_index_0 = bisect.bisect_left(self.__chromosomes[0].snvs, crossover_snv)
-            crossover_index_1 = bisect.bisect_left(self.__chromosomes[1].snvs, crossover_snv)
-            self.__chromosomes[0].snvs[crossover_index_0:], self.__chromosomes[1].snvs[crossover_index_1:] = \
-                self.__chromosomes[1].snvs[crossover_index_1:], self.__chromosomes[0].snvs[crossover_index_0:]
-            # new_snvs_0 = snvs_0[:crossover_index_0] + snvs_1[crossover_index_1:]
-            # new_snvs_1 = snvs_1[:crossover_index_1] + snvs_0[crossover_index_0:]
-            # snvs_0 = new_snvs_0
-            # snvs_1 = new_snvs_1
-        # self.__chromosomes[0].snvs = snvs_0
-        # self.__chromosomes[1].snvs = snvs_1
+            crossover_index_0 = bisect.bisect_left(self.__chromosomes[0].snvs, crossover_point)
+            crossover_index_1 = bisect.bisect_left(self.__chromosomes[1].snvs, crossover_point)
+            chromosome_0 = np.concatenate((
+                self.__chromosomes[0].snvs[:crossover_index_0],
+                self.__chromosomes[1].snvs[crossover_index_1:]))
+            chromosome_1 = np.concatenate((
+                self.__chromosomes[1].snvs[:crossover_index_1],
+                self.__chromosomes[0].snvs[crossover_index_0:]))
+            self.__chromosomes[0].snvs = chromosome_0
+            self.__chromosomes[1].snvs = chromosome_1
 
 
 class Genome:
-    def __init__(self, loci, size):
+    def __init__(self, loci):
         self.__loci = loci
-        self.__size = size
 
     @property
     def loci(self):
@@ -216,7 +227,7 @@ class Individual:
             mutation_rate = float(simulation.model_config_dict[locus]['mutation_rate'])
             recombination_rate = float(simulation.model_config_dict[locus]['recombination_rate'])
             loci.append(Locus([], locus, locus_size, mutation_rate, recombination_rate))
-        self.__genome = Genome(loci, simulation.genome_size)
+        self.__genome = Genome(loci)
 
         self.__genotype = []
         self.__phenotype = []
@@ -353,7 +364,6 @@ class Simulation:
             life_expectancy_sd,
             survival_probability,
             ancestry_generations,
-            genome_size,
             model_config_dict,
             simulation_index=0,
             output_file_name='simulation_output.h5'):
@@ -374,7 +384,6 @@ class Simulation:
         self.__survival_probability = survival_probability
         self.__generation = 0
         self.__ancestry_generations = ancestry_generations
-        self.__genome_size = genome_size
         self.__model_config_dict = model_config_dict
         self.__loci_properties = {}
         self.__alleles_combinations = []
@@ -484,10 +493,6 @@ class Simulation:
         return self.__survival_probability
 
     @property
-    def genome_size(self):
-        return self.__genome_size
-
-    @property
     def loci_properties(self):
         return self.__loci_properties
 
@@ -555,15 +560,20 @@ class Simulation:
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
         with h5py.File(self.__output_file_name, 'a') as f:
+            initial = [len(group) for group in self.__groups]
             sprobs = []
             survivors = []
             survived = np.zeros(0)
             survived_list_index = 0
+            # print('altruist percentage: ', end='')
             for group in self.__groups:
+                alts = 0
                 survivors_groups = []
                 new_survived_size = survived_list_index + len(group)
                 survived.resize((new_survived_size,), refcheck=False)
                 for ind_i in range(len(group)):
+                    if 'altruistic' in group[ind_i].phenotype[0]:
+                        alts += 1
                     sprobs.append(group[ind_i].survival_probability)
                     picker = random.random()
                     if picker < group[ind_i].survival_probability:
@@ -571,12 +581,21 @@ class Simulation:
                         survived[survived_list_index + ind_i] = 1
                     else:
                         survived[survived_list_index + ind_i] = 0
+                # print(alts/len(group), end=', ')
+                if len(group) != 0:
+                    global_altruism_pc.append(alts/len(group))
                 survivors.append(survivors_groups)
                 survived_list_index += len(group)
-            print('survivors: ', end='')
-            for i in survivors:
-                print(len(i), end=', ')
-            print(np.mean(sprobs))
+            # print()
+            # print('survivor percentage: ', end='')
+            # for i in range(len(survivors)):
+            # #     print(round(len(survivors[i])/initial[i]*100), end=', ')
+            #     global_survivor_pc.append(len(survivors[i])/initial[i]*100)
+            # print()
+            # print('survivors: ', end='')
+            # for i in survivors:
+            #     print(len(i), end=', ')
+            # print(np.mean(sprobs))
             self.__groups = survivors
             generation_group = f[f'/generation_{str(self.current_generation).zfill(len(str(self.__generations)))}']
             generation_group.create_dataset('survivors', data=survived)
@@ -641,7 +660,7 @@ class Simulation:
 
             loci.append(Locus(chromosomes, name, locus_size, mutation_rate, recombination_rate))
         descendant.genotype = genotype
-        descendant.genome = Genome(loci, self.__genome_size)
+        descendant.genome = Genome(loci)
         global_times[3][self.current_generation].extend(s_recombination)
         global_times[4][self.current_generation].extend(s_mutation)
 
@@ -668,91 +687,105 @@ class Simulation:
         return new_groups
 
     def reproduce(self):
-        print('Population: ', end='')
-        for group in self.__groups:
-            print(len(group), end=', ')
-
-        print(len(self.__groups))
-        print('Without old: ', end='')
-        # s_discard = time.perf_counter()
+        # print('Population:          ', end='')
+        # for group in self.__groups:
+        #     print(len(group), end=', ')
+        #
+        # print(len(self.__groups))
+        # print('Without old:         ', end='')
+        s_discard = time.perf_counter()
         new_groups = self.discard_old_individuals()
-        for group in new_groups:
-            print(len(group), end=', ')
-
-        print(len(new_groups))
-        # global_times[0].append(time.perf_counter() - s_discard)
-        # s_genome = []
-        # s_ancestry = []
+        offspring = [[] for _ in range(len(self.__groups))]
+        # for group in new_groups:
+        #     print(len(group), end=', ')
+        #
+        # print(len(new_groups))
+        global_times[0].append(time.perf_counter() - s_discard)
+        s_genome = []
+        s_ancestry = []
         new_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups]
-        print('New group sizes: ', end='')
-        for i in new_group_sizes:
-            print(round(i), end=', ')
-        print()
         if sum(new_group_sizes) > self.__population_size_limit:
             new_group_sizes = [round(group_size * self.__population_size_limit / sum(new_group_sizes))
                                for group_size in new_group_sizes]
-        for group_index in range(len(self.__groups)):
-            group_size = new_group_sizes[group_index]
 
-            while len(new_groups[group_index]) < group_size:
+        # print('New group sizes:     ', end='')
+        # for i in new_group_sizes:
+        #     print(round(i), end=', ')
+        # print()
+        for group_index in range(len(self.__groups)):
+            group_size = new_group_sizes[group_index] - len(new_groups[group_index])
+
+            while len(offspring[group_index]) < group_size:
                 if len(self.__groups[group_index]) < 2:
                     break
                 reproducers = random.sample(self.__groups[group_index], 2)
                 new_individual = Individual(self)
-                # s_gen = time.perf_counter()
+                s_gen = time.perf_counter()
                 self.generate_offspring_genome(reproducers, new_individual)
-                # s_genome.append(time.perf_counter() - s_gen)
-                # s_anc = time.perf_counter()
+                s_genome.append(time.perf_counter() - s_gen)
+                s_anc = time.perf_counter()
                 self.generate_offspring_ancestry(reproducers, new_individual)
-                # s_ancestry.append(time.perf_counter() - s_anc)
+                s_ancestry.append(time.perf_counter() - s_anc)
                 self.__newest_ind_id = new_individual.id
                 # noinspection PyTypeChecker
-                new_groups[group_index].append(new_individual)
+                offspring[group_index].append(new_individual)
             if len(self.__groups[group_index]) < 2:
                 break
-            #
-            # print('After reproduction: ', end='')
-            # for group in new_groups:
-            #     print(len(group), end=', ')
-            #
-            # print(len(new_groups))
 
-            if group_size > self.__group_size_limit:
+        # print('After reproduction:  ', end='')
+        # for i in range(len(new_groups)):
+        #     print(len(new_groups[i]) + len(offspring[i]), end=', ')
+        #
+        # print(len(new_groups))
+
+        new_groups = self.group_exchange(new_groups, offspring, new_group_sizes)
+        # print('After group migrati: ', end='')
+        # for i in range(len(new_groups)):
+        #     print(len(new_groups[i]), end=', ')
+        #
+        # print(len(new_groups))
+        split_groups = []
+        for group in new_groups:
+            if len(group) > self.__group_size_limit:
                 # Individuals are added in the group by age, the group is shuffled to avoid grouping
                 # older individuals with older individuals and younger with younger
-                random.shuffle(new_groups[group_index])
+                random.shuffle(group)
                 # First half of the group is added as another group
-                new_groups.append(new_groups[group_index][:round(len(new_groups[group_index]) / 2)].copy())
+                split_groups.append(group[:round(len(group) / 2)].copy())
                 # The original group will be the second half
-                new_groups[group_index] = new_groups[group_index][round(len(new_groups[group_index]) / 2):].copy()
+                split_groups.append(group[round(len(group) / 2):].copy())
+            else:
+                split_groups.append(group)
         # print(s_genome)
         # print(s_ancestry)
         # genome_mean = float(np.mean(s_genome))
         # ancestry_mean = float(np.mean(s_ancestry))
         # global_times[1].append(genome_mean)
         # global_times[2].append(ancestry_mean)
-        print('After group split: ', end='')
-        for group in new_groups:
-            print(len(group), end=', ')
+        # print('After group split:   ', end='')
+        # for group in split_groups:
+        #     print(len(group), end=', ')
+        #
+        # print(len(split_groups))
+        self.__groups = split_groups
 
-        print(len(new_groups))
-        self.__groups = new_groups
-
-    def group_exchange(self):
-        new_groups = [[] for _ in range(len(self.__groups))]
-        for from_group_index in range(len(self.__groups)):
-            # Number of emigrants of the group
-            emigrants = round(len(self.__groups[from_group_index]) * self.__group_migration)
-            target_indexes = list(range(len(self.__groups)))
-            # Possible target groups
-            target_indexes.remove(from_group_index)
-            for i in range(emigrants):
-                emigrant = self.__groups[from_group_index].pop(random.randrange(len(self.__groups[from_group_index])))
-                target_group_index = random.choice(target_indexes)
-                new_groups[target_group_index].append(emigrant)
-        for group_index in range(len(self.__groups)):
-            new_groups[group_index].extend(self.__groups[group_index])
-        self.__groups = new_groups
+    def group_exchange(self, survivors, newborns, group_sizes):
+        if len(survivors) > 1:
+            # new_groups = [[] for _ in range(len(self.__groups))]
+            for from_group_index in range(len(survivors)):
+                if len(survivors[from_group_index]) != 0:
+                    # Number of emigrants of the group
+                    emigrants = round(group_sizes[from_group_index] * self.__group_migration)
+                    target_indexes = list(range(len(survivors)))
+                    # Possible target groups
+                    target_indexes.remove(from_group_index)
+                    for i in range(emigrants):
+                        emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
+                        target_group_index = random.choice(target_indexes)
+                        survivors[target_group_index].append(emigrant)
+            for group_i in range(len(survivors)):
+                survivors[group_i].extend(newborns[group_i])
+            return survivors
 
     def save_generation_data(self):
         with h5py.File(self.__output_file_name, 'a') as f:
@@ -795,10 +828,10 @@ class Simulation:
             altruists = 0
             for altruistic_index in altruistic_indexes:
                 altruists += np.count_nonzero(phenotypes == altruistic_index)
-            if altruists <= 10:
-                print('alt', altruists)
-            if not altruists:
-                self.__stop = True
+            # if altruists <= 10:
+            #     print('alt', altruists)
+            # if not altruists:
+            #     self.__stop = True
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
             generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
@@ -806,22 +839,22 @@ class Simulation:
                 generation_group.create_dataset(f'locus_{self.loci[locus_i]}', data=genotypes[locus_i])
 
     def pass_generation(self):
-        print('original size: ', end='')
-        for gr in self.__groups:
-            print(len(gr), end=', ')
-        print()
+        # print('original size: ', end='')
+        # for gr in self.__groups:
+        #     print(len(gr), end=', ')
+        # print()
         model_module.selection(self.groups)
         self.selection_event()
         self.migration()
         self.reproduce()
-        self.group_exchange()
+        # self.group_exchange()
         self.__generation += 1
         self.save_generation_data()
-        print('===========================')
-        print(len(global_groups))
-        for i in range(len(self.__groups)):
-            print(len(global_groups[i]))
-            global_groups[i][self.current_generation] = (len(self.__groups[i]))
+        # print('===========================')
+        # print(len(global_groups))
+        # for i in range(len(self.__groups)):
+        #     print(len(global_groups[i]))
+        #     global_groups[i][self.current_generation] = (len(self.__groups[i]))
 
     def save_haplotypes(self):
         haplotypes_set = [set() for _ in self.loci]
@@ -840,6 +873,36 @@ class Simulation:
             f.create_group('haplotypes')
             for locus_i in range(len(self.loci)):
                 f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
+
+    def save_snvs(self):
+        snvs_lists = [[] for _ in range(len(self.loci))]
+        for group in self.__groups:
+            for individual in group:
+                loci = individual.genome.loci
+                for locus_index in range(len(self.loci)):
+                    for chromosome in loci[locus_index].chromosomes:
+                        snvs_lists[locus_index].append(chromosome.snvs)
+                        # print(chromosome.snvs)
+                        # print(snvs_lists[locus_index][-1])
+        # haplotypes = []
+        # for haplotype_set in haplotypes_set:
+        #     haplotypes.append(np.array(list(haplotype_set)))
+
+        # with h5py.File(self.__output_file_name, 'a') as f:
+        #     f.create_group('haplotypes')
+        #     for locus_i in range(len(self.loci)):
+        #         f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=np.array(snvs_lists[locus_i]))
+        snvs_dir = os.path.join(os.path.dirname(__file__), 'snvs')
+        os.makedirs(snvs_dir, exist_ok=True)
+        for locus_i in range(len(self.loci)):
+            file_name = f'{self.loci[locus_i]}_snvs.csv'
+            result = os.path.join(os.path.dirname(__file__), 'snvs', file_name)
+            locus_array = snvs_lists[locus_i]
+            # print(locus_array)
+            # print(type(locus_array))
+            # print(locus_array[0])
+            # print(type(locus_array[0]))
+            pd.DataFrame(locus_array).to_csv(result, header=False)
 
 
 def simulator_main(simulation_index):
@@ -864,16 +927,6 @@ def simulator_main(simulation_index):
     life_expectancy_sd = float(general_config['population']['life_expectancy_sd'])
     survival_probability = float(general_config['population']['survival_probability'])
     ancestry_generations = int(general_config['population']['ancestry_generations'])
-    genome_size = general_config['population']['genome_size']
-    units = re.search(r'\D+', genome_size)
-    if not units:
-        genome_size = int(genome_size)
-    elif units.group(0) == 'k':
-        genome_size = int(genome_size[:-1]) * 1000
-    elif units.group(0) == 'm':
-        genome_size = int(genome_size[:-1]) * 1000000
-    else:
-        raise Exception(f"{units.group(0)} invalid in genome_size")
 
     model_config_dict = {s: dict(model_config.items(s)) for s in model_config.sections()}
 
@@ -891,7 +944,6 @@ def simulator_main(simulation_index):
                             life_expectancy_sd,
                             survival_probability,
                             ancestry_generations,
-                            genome_size,
                             model_config_dict,
                             simulation_index,
                             output_file_name)
@@ -911,7 +963,8 @@ def simulator_main(simulation_index):
         print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
               ' ' * (cols - int(progress) - 1), end='')
 
-    simulation.save_haplotypes()
+    # simulation.save_haplotypes()
+    simulation.save_snvs()
 
     alleles_names = []
     for locus, alleles in simulation.loci_properties.items():
@@ -919,6 +972,12 @@ def simulator_main(simulation_index):
 
     with open('groups.txt', 'w') as f:
         f.write(str(global_groups))
+
+
+    with open('altruism.txt', 'w') as f:
+        f.write(str(global_altruism_pc))
+        f.write('\n')
+        f.write(str(global_survivor_pc))
 
     with h5py.File(output_file_name, 'a') as f:
         f.attrs['simulations'] = simulation_index + 1

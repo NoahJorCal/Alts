@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import math
 import random
 from configparser import ConfigParser
 import sys
@@ -43,7 +44,8 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
     if relatedness_coef == 0:
         benefit = minimum_benefit
     else:
-        benefit = relatedness_coef * benefit_relatedness_ratio
+        # benefit = relatedness_coef * benefit_relatedness_ratio
+        benefit = math.exp(4 * (relatedness_coef - 1))
         ''' If the calculated benefit from the relatedness is less than the minimum benefit,
         the later will be the final benefit '''
         if benefit < minimum_benefit:
@@ -82,6 +84,7 @@ def selection(groups,
                             if len(possible_recipients) == 0:
                                 break
                 elif '_' in individual.phenotype[0]:
+                    # print(individual.phenotype[0])
                     possible_recipients = get_possible_recipients(individual, group)
                     if len(possible_recipients) != 0:
                         added_cost = 0

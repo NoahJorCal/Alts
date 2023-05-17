@@ -46,11 +46,15 @@ survivors_pgr_pgen_bool = general_config['output']['survivors_pgr_pgen'].lower()
 haplotypes_bool = general_config['output']['haplotypes'].lower() in save_words
 
 
-def save_phenotypes_pgen(phenotype, n_loci, generation, simulation, phenotypes_list):
+def save_phenotypes_pgen(phenotype, phenotype_names, generation, simulation, phenotypes_list, phenotypes_order_indexes):
     simulation = int(simulation.split('_')[-1])
     generation = int(generation.split('_')[-1])
-    for i in range(n_loci):
+    for i in range(len(phenotype_names)):
+        # print()
+        # print(phenotype_names[phenotypes_order_indexes[i]])
+        # print(phenotype_names[i])
         phenotypes_list[simulation][generation][i] = np.count_nonzero(phenotype == i)
+        # print(phenotypes_list[simulation][generation][phenotypes_order_indexes[i]])
 
 
 def save_allele_pgen(alleles, n_loci, generation, simulation, alleles_names, alleles_list):
@@ -83,7 +87,7 @@ def save_survivors_pgen(survived, generation, simulation, survivors_list):
 
 def simulation_plot():
     with h5py.File(vars(args)['input'], 'r') as f:
-
+        phenotypes_order = ['altruistic&neutral', 'selfish_altruistic&neutral', 'selfish&neutral']
         simulations = f.attrs['simulations']
         generations = f.attrs['generations']
         n_loci = f.attrs['n_loci']
@@ -93,7 +97,8 @@ def simulation_plot():
         for alleles in f.attrs['alleles_names'].translate({ord(i): '' for i in '[, '})[:-2].split(']'):
             alleles_names.append([x for x in alleles.split('\'')[::-1] if x != ''])
         phenotype_names = np.flip(f.attrs['phenotype_names'], axis=0)
-        phenotypes_all = np.zeros((simulations, generations, n_loci))
+        phenotypes_order_indexes = [phenotypes_order.index(phenotype) for phenotype in phenotype_names]
+        phenotypes_all = np.zeros((simulations, generations, len(phenotype_names)))
         # ASSUMING THAT EACH LOCUS HAS TWO ALLELES
         alleles_all = np.zeros((n_loci, simulations, generations, 2))
         as_ratio_all = np.zeros((simulations, generations, groups))
@@ -115,7 +120,8 @@ def simulation_plot():
                 # print(alleles)
                 # print(simulation, generation)
                 if phenotypes_pgen_bool:
-                    save_phenotypes_pgen(phenotype, n_loci, generation, simulation, phenotypes_all)
+                    save_phenotypes_pgen(phenotype, phenotype_names, generation, simulation,
+                                         phenotypes_all, phenotypes_order_indexes)
                 if allele_pgen_bool:
                     save_allele_pgen(alleles, n_loci, generation, simulation, alleles_names, alleles_all)
                 if altruist_selfish_ratio_pgen_bool:
@@ -150,8 +156,9 @@ def simulation_plot():
     if phenotypes_pgen_bool:
         # Stack-plot of the proportion of each phenotype at the beginning of each generation
         phenotypes_plot = plt.figure(1)
-        colour_map = ["#51bfe8ff", "#e74848ff"]
-        plt.stackplot(generation_x, phenotypes_proportions, labels=phenotype_names, colors=colour_map)
+        labels = [phenotype_names[i] for i in phenotypes_order_indexes]
+        colour_map = ['#51bfe8ff', '#b874deff', '#e74848ff']
+        plt.stackplot(generation_x, phenotypes_proportions, labels=labels, colors=colour_map)
         plt.margins(0)
         plt.title('Proportion of individuals by phenotype')
         plt.xlabel('Generation')
@@ -204,6 +211,7 @@ def simulation_plot():
 
     if args.save_plots:
         plt.savefig('proportions_plot.png')
+        plt.savefig('proportions_plot.svg')
 
     if args.show:
         plt.show()
