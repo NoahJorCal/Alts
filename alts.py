@@ -28,45 +28,75 @@ general_config.read('config.ini')
 start_time = perf_counter()
 
 parser = argparse.ArgumentParser(description='Altruism simulations')
-parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output file where data will be stored')
+parser.add_argument('-d', '--directory', default='output', help='Output directory where individual'
+                                                                'simulation results will be stored')
+parser.add_argument('-o', '--output', default='simulation.h5', help='Output file where the'
+                                                                    'simulation results will be stored')
 parser.add_argument('-c', '--cpu', default=1, type=int, help='Number of simultaneous workers')
+parser.add_argument('-q', '--quiet', action='store_true', help='Number of simultaneous workers')
 args = parser.parse_args()
 
 
-def run_simulation(simulation_index):
-    start_counter = perf_counter()
-    aborted = simulator_main(simulation_index)
-    simulation_duration = perf_counter() - start_counter
-    if aborted:
-        print(f'\033[K\033[FSimulation ended because altruism went extinct')
+def run_simulation(output_dir, output_file, quiet):
+    # start_counter = perf_counter()
+    aborted_sim = simulator_main(output_dir, output_file, quiet)
+    # simulation_duration = perf_counter() - start_counter
+    if aborted_sim:
+        if not args.quiet:
+            print(f'\033[K\033[FSimulation ended because altruism went extinct')
         return None
     else:
-        print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds. '
-              f'Running next round with {args.cpu} simulations...')
-        return simulation_duration
+        return True
+    # else:
+    #     if not args.quiet:
+    #         print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds. '
+    #               f'Running next round with {args.cpu} simulations...')
+    #     return simulation_duration
 
 
 def create_simulation_results():
 
     outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
-    if os.path.exists(outputs_dir):
-        shutil.rmtree(outputs_dir)
+    # if os.path.exists(outputs_dir):
+    #     shutil.rmtree(outputs_dir)
 
-    number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
-    print(f'Running first round of {args.cpu} simulations...')
+    # number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
+    if not args.quiet:
+        print(f'Running first round of {args.cpu} simulations...')
 
     if args.cpu > os.cpu_count():
         raise CPUError()
     with multiprocessing.Pool(processes=args.cpu) as pool:
-        results = [pool.apply_async(run_simulation, args=(x, )) for x in
-                   range(number_of_simulations)]
+        # results = [pool.apply_async(run_simulation, args=(x, )) for x in
+        #            range(number_of_simulations)]
+        results = [pool.apply_async(run_simulation, args=(args.directory, args.output, args.quiet))]
         output = [p.get() for p in results]
     output = [i for i in output if i is not None]
+    output_file = args.output
+    if '.h5' not in output_file and '.hdf5' not in output_file and \
+       '.h5p' not in output_file and '.he5' not in output_file and \
+       '.h5m' not in output_file and '.h5z' not in output_file:
+        output_file += '.h5'
+    simulation_results = os.path.join(os.path.dirname(__file__), args.directory, output_file)
     if output:
-        print(f'\033[K\033[F\033[KEach simulation took {round(mean(output), 2)} seconds on average and '
-              f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+        if not args.quiet:
+            print(f'\033[K\033[F\033[KEach simulation took {round(mean(output), 2)} seconds on average and '
+                  f'{round((perf_counter() - start_time)/60,2)} minutes in total')
     else:
-        exit('Altruism went extinct in all simulations, no data generated')
+        os.remove(simulation_results)
+        if not args.quiet:
+            # print('\033[1A', end='\x1b[2K')
+            # print('\033[1A', end='\x1b[2K')
+            # print('\033[1A', end='\x1b[2K')
+            print('Altruism went extinct in all simulations, no data generated')
+            print('\033[1A', end='\x1b[2K')
+            print('\033[1A', end='\x1b[2K')
+            print('\033[1A', end='\x1b[2K')
+        return True
+
+    if not args.quiet:
+        print(f'\x1b[2KThe results of all the simulations have been saved in {simulation_results}')
+    return False
 
     def print_name_type(name, obj):
         print(name, type(obj))
@@ -103,10 +133,13 @@ def create_simulation_results():
     #     shutil.rmtree(outputs_dir)
     # print(f'\r\033[F\rThe results of all the simulations have been saved in {args.output}\n'
     #       f'All intermediate files have been removed')
-    print('The results of all the simulations have been saved in outputs/ folder')
+
 
 if __name__ == '__main__':
-    create_simulation_results()
+    aborted = True
+    while aborted:
+        aborted = create_simulation_results()
+        # print(aborted)
 
 # def create_simulation_results():
 #     number_of_simulations = int(general_config['simulation']['simulations_per_summary'])

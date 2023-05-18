@@ -20,8 +20,10 @@ if __name__ == '__main__':
     # Argument parser
     parser = argparse.ArgumentParser(prog='Alts simulator',
                                      description='Main simulation of Alts program')
-    parser.add_argument('-o', '--output', default='simulation_output.h5', help='Output h5 file with individuals'
-                                                                               'information in each generation')
+    parser.add_argument('-d', '--directory', default='output', help='Output directory where individual'
+                                                                    'simulation results will be stored')
+    parser.add_argument('-o', '--output', default='simulation.h5', help='Output file where the'
+                                                                        'simulation results will be stored')
     parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulation')
 
     args = parser.parse_args()
@@ -338,7 +340,6 @@ class Simulation:
             survival_probability,
             ancestry_generations,
             model_config_dict,
-            simulation_index=0,
             output_file_name='simulation_output.h5'):
         self.__generations = generations + 1
         self.__group_number = group_number
@@ -361,7 +362,6 @@ class Simulation:
         self.__loci_properties = {}
         self.__alleles_combinations = []
         self.__newest_ind_id = 0
-        self.__simulation_index = simulation_index
         self.__output_file_name = output_file_name
         self.__stop = False
         for locus in self.__model_config_dict.keys():
@@ -672,14 +672,19 @@ class Simulation:
         if len(survivors) > 1:
             # new_groups = [[] for _ in range(len(self.__groups))]
             for from_group_index in range(len(survivors)):
-                if len(survivors[from_group_index]) != 0:
-                    # Number of emigrants of the group
-                    emigrants = round(group_sizes[from_group_index] * self.__group_migration)
-                    target_indexes = list(range(len(survivors)))
-                    # Possible target groups
-                    target_indexes.remove(from_group_index)
+                # Number of emigrants of the group
+                emigrants = round(group_sizes[from_group_index] * self.__group_migration)
+                target_indexes = list(range(len(survivors)))
+                # Possible target groups
+                target_indexes.remove(from_group_index)
+                if len(newborns[from_group_index]) != 0:
                     for i in range(emigrants):
                         emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
+                        target_group_index = random.choice(target_indexes)
+                        survivors[target_group_index].append(emigrant)
+                elif len(survivors[from_group_index]) != 0:
+                    for i in range(emigrants):
+                        emigrant = survivors[from_group_index].pop(random.randrange(len(survivors[from_group_index])))
                         target_group_index = random.choice(target_indexes)
                         survivors[target_group_index].append(emigrant)
             for group_i in range(len(survivors)):
@@ -779,13 +784,15 @@ class Simulation:
             pd.DataFrame(locus_array).to_csv(result, header=False)
 
 
-def simulator_main(simulation_index):
-    outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
-    if __name__ == '__main__':
-        if os.path.exists(outputs_dir):
-            shutil.rmtree(outputs_dir)
-    os.makedirs(outputs_dir, exist_ok=True)
-    output_file_name = 'outputs/' + 'simulation_' + str(simulation_index) + '.h5'
+def simulator_main(output_dir, output_file, quiet):
+    os.makedirs(output_dir, exist_ok=True)
+    if '.h5' not in output_file and '.hdf5' not in output_file and \
+       '.h5p' not in output_file and '.he5' not in output_file and \
+       '.h5m' not in output_file and '.h5z' not in output_file:
+        output_file += '.h5'
+    output_file_name = os.path.join(os.path.dirname(__file__), output_dir, output_file)
+    if os.path.exists(output_file_name):
+        raise Exception(f'File {output_file_name} already exists')
 
     generations = int(general_config['simulation']['generations'])
     group_number = int(general_config['population']['group_number'])
@@ -819,10 +826,12 @@ def simulator_main(simulation_index):
                             survival_probability,
                             ancestry_generations,
                             model_config_dict,
-                            simulation_index,
                             output_file_name)
     simulation.populate_groups()
     simulation.save_generation_data()
+
+    generations_duration = np.zeros(generations)
+    generation_start = time.perf_counter()
 
     # Progress bar
     bar_msg = 'Simulation progress: '
@@ -834,24 +843,31 @@ def simulator_main(simulation_index):
         if simulation.stop:
             return True
         progress = cols*i/generations
-        print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
-              ' ' * (cols - int(progress) - 1), end='')
+        if not quiet:
+            print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
+                  ' ' * (cols - int(progress) - 1), end='')
+        generation_end = time.perf_counter()
+        generations_duration[i] = generation_end - generation_start
+        generation_start = time.perf_counter()
 
     # simulation.save_haplotypes()
     simulation.save_snvs()
 
+    phenotypes_names = []
     alleles_names = []
     for locus, alleles in simulation.loci_properties.items():
-        alleles_names.append(alleles[0])
+        phenotypes_names.append(alleles[0])
+        alleles_names.append(alleles[0][:len(alleles[1])])
 
     with h5py.File(output_file_name, 'a') as f:
-        f.attrs['simulations'] = simulation_index + 1
         f.attrs['generations'] = generations + 1
         f.attrs['n_loci'] = len(simulation.loci)
-        f.attrs['groups'] = group_number
+        f.attrs['groups'] = len(simulation.groups)
         f.attrs['loci'] = simulation.loci
         f.attrs['phenotype_names'] = simulation.alleles_combinations
+        f.attrs['phenotypes_names'] = str(phenotypes_names)
         f.attrs['alleles_names'] = str(alleles_names)
+        f.create_dataset('duration', data=generations_duration)
 
 
     return False
@@ -859,5 +875,4 @@ def simulator_main(simulation_index):
 
 if __name__ == '__main__':
     # Across-threads counter for output file
-    simulation_i = 0
-    simulator_main(simulation_i)
+    simulator_main(args.directory, args.output, args.quiet)
