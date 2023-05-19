@@ -67,7 +67,12 @@ def save_altruist_selfish_ratio_pgen(group, phenotype, generation, as_ratio_list
     for i in range(len(indices) - 1):
         altruists = np.count_nonzero(phenotype[indices[i]:indices[i + 1]])
         selfish = len(phenotype[indices[i]:indices[i + 1]]) - altruists
-        as_ratio_list[generation][i] = selfish/altruists
+
+        if altruists == 0:
+            as_ratio_list[generation][i] = 0
+        else:
+
+            as_ratio_list[generation][i] = selfish/altruists
 
 
 def save_survivors_pgen(survived, generation, survivors_list):
@@ -80,7 +85,8 @@ def one_simulation_plot():
         phenotypes_order = ['altruistic&neutral', 'selfish_altruistic&neutral', 'selfish&neutral']
         generations = f.attrs['generations']
         n_loci = f.attrs['n_loci']
-        groups = f.attrs['groups']
+        # groups = f.attrs['groups']
+        groups = 32
         loci = f.attrs['loci']
         phenotypes_names = []
         for alleles in f.attrs['phenotypes_names'].translate({ord(i): '' for i in '[, '})[:-2].split(']'):
@@ -126,7 +132,6 @@ def one_simulation_plot():
             alleles_proportions = np.array(trans_alleles_proportions)
 
         generations_duration = f['duration'][:]
-        print(generations_duration)
         # if altruist_selfish_ratio_pgen_bool:
         #     as_ratio_mean = np.mean(np.mean(as_ratio_all, axis=0), axis=1)
 
@@ -181,15 +186,16 @@ def one_simulation_plot():
         plt.title('Survivors per generation')
         plt.xlabel('Generation')
         plt.ylabel('Survivors')
+        plt.ylim(0)
 
         saved_plots = True
 
-    survivors_plot = plt.figure(100)
-    plt.plot(generation_x, generations_duration)
-    plt.margins(0)
-    plt.title('Duration in seconds of each generation')
-    plt.xlabel('Generation')
-    plt.ylabel('Seconds')
+    # survivors_plot = plt.figure(100)
+    # plt.plot(generation_x[:-1], generations_duration)
+    # plt.margins(0)
+    # plt.title('Duration in seconds of each generation')
+    # plt.xlabel('Generation')
+    # plt.ylabel('Seconds')
 
     if not saved_plots:
         warnings.warn('No plots configured for saving in config.ini')

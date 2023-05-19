@@ -2,10 +2,12 @@
 
 import argparse
 import os
-import shutil
+import random
 import multiprocessing
 from configparser import ConfigParser
 from time import perf_counter
+
+import numpy as np
 from numpy import mean
 
 import h5py
@@ -34,12 +36,13 @@ parser.add_argument('-o', '--output', default='simulation.h5', help='Output file
                                                                     'simulation results will be stored')
 parser.add_argument('-c', '--cpu', default=1, type=int, help='Number of simultaneous workers')
 parser.add_argument('-q', '--quiet', action='store_true', help='Number of simultaneous workers')
+parser.add_argument('-s', '--seed', required=False, type=int, help='Set a seed for the simulations')
 args = parser.parse_args()
 
 
-def run_simulation(output_dir, output_file, quiet):
+def run_simulation(output_dir, output_file, seed, quiet):
     # start_counter = perf_counter()
-    aborted_sim = simulator_main(output_dir, output_file, quiet)
+    aborted_sim = simulator_main(output_dir, output_file, seed, quiet)
     # simulation_duration = perf_counter() - start_counter
     if aborted_sim:
         if not args.quiet:
@@ -55,7 +58,6 @@ def run_simulation(output_dir, output_file, quiet):
 
 
 def create_simulation_results():
-
     outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
     # if os.path.exists(outputs_dir):
     #     shutil.rmtree(outputs_dir)
@@ -69,7 +71,7 @@ def create_simulation_results():
     with multiprocessing.Pool(processes=args.cpu) as pool:
         # results = [pool.apply_async(run_simulation, args=(x, )) for x in
         #            range(number_of_simulations)]
-        results = [pool.apply_async(run_simulation, args=(args.directory, args.output, args.quiet))]
+        results = [pool.apply_async(run_simulation, args=(args.directory, args.output, args.seed, args.quiet))]
         output = [p.get() for p in results]
     output = [i for i in output if i is not None]
     output_file = args.output
