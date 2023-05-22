@@ -41,15 +41,15 @@ args = parser.parse_args()
 
 
 def run_simulation(output_dir, output_file, seed, quiet):
-    # start_counter = perf_counter()
-    aborted_sim = simulator_main(output_dir, output_file, seed, quiet)
-    # simulation_duration = perf_counter() - start_counter
-    if aborted_sim:
+    start_counter = perf_counter()
+    out_file = simulator_main(output_dir, output_file, seed, quiet)
+    simulation_duration = perf_counter() - start_counter
+    if not out_file:
         if not args.quiet:
             print(f'\033[K\033[FSimulation ended because altruism went extinct')
         return None
     else:
-        return True
+        return out_file, simulation_duration
     # else:
     #     if not args.quiet:
     #         print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds. '
@@ -58,10 +58,6 @@ def run_simulation(output_dir, output_file, seed, quiet):
 
 
 def create_simulation_results():
-    outputs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
-    # if os.path.exists(outputs_dir):
-    #     shutil.rmtree(outputs_dir)
-
     # number_of_simulations = int(general_config['simulation']['simulations_per_summary'])
     if not args.quiet:
         print(f'Running first round of {args.cpu} simulations...')
@@ -74,16 +70,12 @@ def create_simulation_results():
         results = [pool.apply_async(run_simulation, args=(args.directory, args.output, args.seed, args.quiet))]
         output = [p.get() for p in results]
     output = [i for i in output if i is not None]
-    output_file = args.output
-    if '.h5' not in output_file and '.hdf5' not in output_file and \
-       '.h5p' not in output_file and '.he5' not in output_file and \
-       '.h5m' not in output_file and '.h5z' not in output_file:
-        output_file += '.h5'
-    simulation_results = os.path.join(os.path.dirname(__file__), args.directory, output_file)
+    print(output)
+    simulation_results = os.path.join(os.path.dirname(__file__), args.directory, output[0][0])
     if output:
         if not args.quiet:
-            print(f'\033[K\033[F\033[KEach simulation took {round(mean(output), 2)} seconds on average and '
-                  f'{round((perf_counter() - start_time)/60,2)} minutes in total')
+            print(f'\033[K\033[F\033[KEach simulation took {round(mean(output[0][1]), 2)} seconds on average and '
+                  f'{round((perf_counter() - start_time)/60, 2)} minutes in total')
     else:
         os.remove(simulation_results)
         if not args.quiet:
@@ -97,7 +89,7 @@ def create_simulation_results():
         return True
 
     if not args.quiet:
-        print(f'\x1b[2KThe results of all the simulations have been saved in {simulation_results}')
+        print(f'\x1b[2KThe results of the simulation have been saved in {simulation_results}')
     return False
 
     def print_name_type(name, obj):
