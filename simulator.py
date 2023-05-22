@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import shutil
 import time
 import warnings
 from os import path, get_terminal_size
@@ -17,6 +16,8 @@ from configparser import ConfigParser
 import os
 
 last_max_group = 5
+# global_survival_prob = []
+# global_surv = []
 
 if __name__ == '__main__':
     # Argument parser
@@ -344,6 +345,7 @@ class Simulation:
         self.__group_number = group_number
         self.__group_size = group_size
         self.__groups = []
+        self.__groups_avg_survival_prob = []
         self.__groups_indices = np.arange(self.__group_number)
         self.__total_groups = self.__group_number
         self.__group_size_limit = group_size_limit
@@ -538,8 +540,21 @@ class Simulation:
                 group.append(individual)
             self.__groups.append(group)
 
+    def reset_survival_prob(self):
+        for group in self.__groups:
+            for ind in group:
+                ind.survival_probability = self.__survival_probability
+
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
+        alt_perc = []
+        for group in self.__groups:
+            alts = 0
+            for ind in group:
+                if 'altruistic' in ind.phenotype[0]:
+                    alts += 1
+            alt_perc.append(round(alts/len(group)*100))
+        # print('alt perc', alt_perc)
         with h5py.File(self.__output_file_name, 'a') as f:
             survivors = []
             survived = np.zeros(0)
@@ -557,14 +572,26 @@ class Simulation:
                     else:
                         survived[survived_list_index + ind_i] = 0
                 survivors.append(survivors_groups)
-                s.append(len(survivors_groups))
+                s.append(round(len(survivors_groups)/len(group)*100))
+                # global_surv.append(round(len(survivors_groups)/len(group)*100))
                 survived_list_index += len(group)
-            print(self.__groups_indices)
-            print(s)
-            print()
+            # print(self.__groups_indices)
+            # print('survival_prob', list(np.around(self.__groups_avg_survival_prob, decimals=2)))
+            # print('survi', s)
+            # print()
             self.__groups = survivors
             generation_group = f[f'/generation_{str(self.current_generation).zfill(len(str(self.__generations)))}']
             generation_group.create_dataset('survivors', data=survived)
+
+    def save_avg_survival_prob(self):
+        avg_survival_prob = []
+        for group in self.__groups:
+            survival_prob = np.zeros(len(group))
+            for ind_i in range(len(group)):
+                survival_prob[ind_i] = group[ind_i].survival_probability
+            avg_survival_prob.append(np.mean(survival_prob))
+            # global_survival_prob.append(np.mean(survival_prob))
+        self.__groups_avg_survival_prob = avg_survival_prob
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
@@ -678,7 +705,22 @@ class Simulation:
         self.delete_empty_groups()
         new_groups = self.discard_old_individuals()
         offspring = [[] for _ in range(len(self.__groups))]
-        new_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups]
+        # print('before', [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups])
+        new_group_sizes = []
+        for group_i in range(len(self.__groups)):
+            # Survivors
+            size = len(self.__groups[group_i])
+            # Each survivors has descendants_per_survivor descendants
+            size += len(self.__groups[group_i]) * self.__descendants_per_survivor
+            # Groups with individuals with more survival probability than expected get more descendants
+            # print(self.__groups_avg_survival_prob[group_i], self.__survival_probability)
+            survival_prob_difference = (self.__groups_avg_survival_prob[group_i] / self.__survival_probability) - 1
+            # print(survival_prob_difference)
+            size += len(self.__groups[group_i]) * survival_prob_difference
+            new_group_sizes.append(round(size))
+        # print('after', new_group_sizes)
+        # print()
+        # new_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups]
         if sum(new_group_sizes) > self.__population_size_limit:
             new_group_sizes = [round(group_size * self.__population_size_limit / sum(new_group_sizes))
                                for group_size in new_group_sizes]
@@ -706,10 +748,21 @@ class Simulation:
                 # Possible target groups
                 target_indexes.remove(from_group_index)
                 if len(newborns[from_group_index]) != 0:
-                    for i in range(emigrants):
-                        emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
-                        target_group_index = random.choice(target_indexes)
-                        survivors[target_group_index].append(emigrant)
+                    if len(newborns[from_group_index]) > emigrants:
+                        for i in range(emigrants):
+                            emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
+                            target_group_index = random.choice(target_indexes)
+                            survivors[target_group_index].append(emigrant)
+                    else:
+                        emigrants_left = emigrants - len(newborns[from_group_index])
+                        for i in range(len(newborns[from_group_index])):
+                            emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
+                            target_group_index = random.choice(target_indexes)
+                            survivors[target_group_index].append(emigrant)
+                        for i in range(emigrants_left):
+                            emigrant = survivors[from_group_index].pop(random.randrange(len(survivors[from_group_index])))
+                            target_group_index = random.choice(target_indexes)
+                            survivors[target_group_index].append(emigrant)
                 elif len(survivors[from_group_index]) != 0:
                     for i in range(emigrants):
                         emigrant = survivors[from_group_index].pop(random.randrange(len(survivors[from_group_index])))
@@ -776,7 +829,9 @@ class Simulation:
 
     def pass_generation(self):
         print(self.current_generation)
+        self.reset_survival_prob()
         model_module.selection(self.groups)
+        self.save_avg_survival_prob()
         self.selection_event()
         self.migration()
         self.reproduce()
@@ -892,6 +947,12 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     # simulation.save_haplotypes()
     simulation.save_snvs()
 
+    # with open('survivors.txt', 'w') as f:
+    #     f.write(str(global_survival_prob))
+    #     f.write('\n')
+    #     f.write(str(global_surv))
+    #     f.write('\n')
+
     phenotypes_names = []
     alleles_names = []
     for locus, alleles in simulation.loci_properties.items():
@@ -901,11 +962,14 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     with h5py.File(output_file_name, 'a') as f:
         f.attrs['generations'] = generations + 1
         f.attrs['n_loci'] = len(simulation.loci)
-        f.attrs['groups'] = max(simulation.total_groups)
+        f.attrs['groups'] = simulation.total_groups
         f.attrs['loci'] = simulation.loci
         f.attrs['phenotype_names'] = simulation.alleles_combinations
+        print(simulation.alleles_combinations)
         f.attrs['phenotypes_names'] = str(phenotypes_names)
+        print(str(phenotypes_names))
         f.attrs['alleles_names'] = str(alleles_names)
+        str(alleles_names)
         f.create_dataset('duration', data=generations_duration)
 
     return False
