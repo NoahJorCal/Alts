@@ -53,6 +53,17 @@ def print_name_type(name, obj):
     print(name, type(obj))
 
 
+def uniquify(path_name):
+    filename, extension = os.path.splitext(path_name)
+    counter = 0
+
+    while os.path.exists(path_name):
+        path_name = filename + "_" + str(counter) + extension
+        counter += 1
+
+    return path_name
+
+
 def delete_random_elems(input_list, n):
     for i in range(n):
         group_index = random.randrange(len(input_list))
@@ -189,7 +200,7 @@ class Genome:
 
 
 class Individual:
-    def __init__(self, simulation):
+    def __init__(self, simulation, initial_survival_probability):
         self.__simulation = simulation
         self.__age = 0
         self.__life_expectancy = round(np.random.normal(simulation.life_expectancy, simulation.life_expectancy_sd))
@@ -206,7 +217,8 @@ class Individual:
 
         self.__genotype = []
         self.__phenotype = []
-        self.__survival_probability = simulation.survival_probability
+        self.__initial_survival_probability = initial_survival_probability
+        self.__survival_probability = self.__initial_survival_probability
         self.__id = simulation.newest_ind_id + 1
         simulation.newest_ind_id = self.__id
         self.__ancestry = []
@@ -250,6 +262,10 @@ class Individual:
     @phenotype.setter
     def phenotype(self, value):
         self.__phenotype = value
+
+    @property
+    def initial_survival_probability(self):
+        return self.__initial_survival_probability
 
     @property
     def survival_probability(self):
@@ -337,7 +353,8 @@ class Simulation:
             immigration_phenotype,
             life_expectancy,
             life_expectancy_sd,
-            survival_probability,
+            survival_probability_mean,
+            survival_probability_sd,
             ancestry_generations,
             model_config_dict,
             output_file_name='simulation_output.h5'):
@@ -345,7 +362,8 @@ class Simulation:
         self.__group_number = group_number
         self.__group_size = group_size
         self.__groups = []
-        self.__groups_avg_survival_prob = []
+        self.__calc_avg_survival_prob = []
+        self.__exp_avg_survival_prob = []
         self.__groups_indices = np.arange(self.__group_number)
         self.__total_groups = self.__group_number
         self.__group_size_limit = group_size_limit
@@ -358,7 +376,8 @@ class Simulation:
             self.__immigration_phenotype = immigration_phenotype.replace(' ', '').split(',')
         self.__life_expectancy = life_expectancy
         self.__life_expectancy_sd = life_expectancy_sd
-        self.__survival_probability = survival_probability
+        self.__survival_probability_mean = survival_probability_mean
+        self.__survival_probability_sd = survival_probability_sd
         self.__generation = 0
         self.__ancestry_generations = ancestry_generations
         self.__model_config_dict = model_config_dict
@@ -472,8 +491,12 @@ class Simulation:
         return self.__life_expectancy_sd
 
     @property
-    def survival_probability(self):
-        return self.__survival_probability
+    def survival_probability_mean(self):
+        return self.__survival_probability_mean
+
+    @property
+    def survival_probability_sd(self):
+        return self.__survival_probability_sd
 
     @property
     def loci_properties(self):
@@ -533,7 +556,9 @@ class Simulation:
         for group_i in range(self.__group_number):
             group = []
             for ind_i in range(self.__group_size):
-                individual = Individual(self)
+                survival_probability = np.random.normal(self.__survival_probability_mean,
+                                                        self.__survival_probability_sd)
+                individual = Individual(self, survival_probability)
                 individual.genotype = self.generate_individual_genotype()
                 individual.generate_genome()
                 self.__newest_ind_id = individual.id
@@ -543,7 +568,7 @@ class Simulation:
     def reset_survival_prob(self):
         for group in self.__groups:
             for ind in group:
-                ind.survival_probability = self.__survival_probability
+                ind.survival_probability = ind.initial_survival_probability
 
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
@@ -576,7 +601,7 @@ class Simulation:
                 # global_surv.append(round(len(survivors_groups)/len(group)*100))
                 survived_list_index += len(group)
             # print(self.__groups_indices)
-            # print('survival_prob', list(np.around(self.__groups_avg_survival_prob, decimals=2)))
+            # print('survival_prob', list(np.around(self.__calc_avg_survival_prob, decimals=2)))
             # print('survi', s)
             # print()
             self.__groups = survivors
@@ -584,18 +609,25 @@ class Simulation:
             generation_group.create_dataset('survivors', data=survived)
 
     def save_avg_survival_prob(self):
-        avg_survival_prob = []
+        calc_avg_survival_prob = []
+        exp_avg_survival_prob = []
         for group in self.__groups:
-            survival_prob = np.zeros(len(group))
+            calc_survival_prob = np.zeros(len(group))
+            exp_survival_prob = np.zeros(len(group))
             for ind_i in range(len(group)):
-                survival_prob[ind_i] = group[ind_i].survival_probability
-            avg_survival_prob.append(np.mean(survival_prob))
+                calc_survival_prob[ind_i] = group[ind_i].survival_probability
+                exp_survival_prob[ind_i] = group[ind_i].initial_survival_probability
+            calc_avg_survival_prob.append(np.mean(calc_survival_prob))
+            exp_avg_survival_prob.append(np.mean(exp_survival_prob))
             # global_survival_prob.append(np.mean(survival_prob))
-        self.__groups_avg_survival_prob = avg_survival_prob
+        self.__calc_avg_survival_prob = calc_avg_survival_prob
+        self.__exp_avg_survival_prob = exp_avg_survival_prob
 
     # Generates a new individuals with the given immigrant's genotype
     def generate_immigrant(self):
-        individual = Individual(self)
+        survival_probability = np.random.normal(self.__survival_probability_mean,
+                                                self.__survival_probability_sd)
+        individual = Individual(self, survival_probability)
         individual.genotype = self.__immigrants_genotype
         individual.generate_genome()
         self.__newest_ind_id = individual.id
@@ -621,7 +653,6 @@ class Simulation:
         # Actual Locus objects
         loci = []
         for locus_index in range(len(reproducers[0].genome.loci)):
-
             genotype.append([])
             chromosomes = []
             # For each locus, each reproducer contribute with one allele (Chromosome object)
@@ -703,21 +734,26 @@ class Simulation:
 
     def reproduce(self):
         self.delete_empty_groups()
+        print([len(group) for group in self.__groups])
+        print([len(group) + len(group) * self.__descendants_per_survivor
+                               for group in self.__groups])
         new_groups = self.discard_old_individuals()
         offspring = [[] for _ in range(len(self.__groups))]
         # print('before', [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups])
-        new_group_sizes = []
-        for group_i in range(len(self.__groups)):
-            # Survivors
-            size = len(self.__groups[group_i])
-            # Each survivors has descendants_per_survivor descendants
-            size += len(self.__groups[group_i]) * self.__descendants_per_survivor
-            # Groups with individuals with more survival probability than expected get more descendants
-            # print(self.__groups_avg_survival_prob[group_i], self.__survival_probability)
-            survival_prob_difference = (self.__groups_avg_survival_prob[group_i] / self.__survival_probability) - 1
-            # print(survival_prob_difference)
-            size += len(self.__groups[group_i]) * survival_prob_difference
-            new_group_sizes.append(round(size))
+        # Survivors + descendants per survivor
+        exp_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor
+                           for group in self.__groups]
+        calc_exp_sp_ratios = [self.__calc_avg_survival_prob[group_i] / self.__exp_avg_survival_prob[group_i]
+                              for group_i in range(len(self.__groups))]
+        print(calc_exp_sp_ratios)
+        mean_ratios = sum(calc_exp_sp_ratios) / len(calc_exp_sp_ratios)
+        print(mean_ratios)
+        calc_exp_sp_ratios = [(calc_exp_sp_ratios[group_i] - mean_ratios) * 2 + 1
+                              for group_i in range(len(self.__groups))]
+        print(calc_exp_sp_ratios)
+        new_group_sizes = [round(exp_group_sizes[group_i] * calc_exp_sp_ratios[group_i])
+                           for group_i in range(len(self.__groups))]
+        print(new_group_sizes)
         # print('after', new_group_sizes)
         # print()
         # new_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups]
@@ -729,7 +765,9 @@ class Simulation:
 
             while len(offspring[group_index]) < group_size:
                 reproducers = random.sample(self.__groups[group_index], 2)
-                new_individual = Individual(self)
+                survival_probability = (reproducers[0].initial_survival_probability +
+                                        reproducers[1].initial_survival_probability) / 2
+                new_individual = Individual(self, survival_probability)
                 self.generate_offspring_genome(reproducers, new_individual)
                 self.generate_offspring_ancestry(reproducers, new_individual)
                 self.__newest_ind_id = new_individual.id
@@ -818,8 +856,8 @@ class Simulation:
                 altruists += np.count_nonzero(phenotypes == altruistic_index)
             # if not altruists:
             #     self.__stop = True
-            if self.last_max_group > round(max(groups)) + 1:
-                raise Exception(self.current_generation)
+            # if self.last_max_group > round(max(groups)) + 1:
+            #     raise Exception(self.current_generation)
             self.last_max_group = round(max(groups)) + 1
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
@@ -870,12 +908,12 @@ class Simulation:
         for locus_i in range(len(self.loci)):
             file_name = f'{self.loci[locus_i]}_snvs.csv'
             result = os.path.join(os.path.dirname(__file__), 'snvs', file_name)
+            result = uniquify(result)
             locus_array = snvs_lists[locus_i]
             pd.DataFrame(locus_array).to_csv(result, header=False)
 
 
 def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
-    print(sim_seed)
     if sim_seed:
         random.seed(sim_seed)
         np.random.seed(sim_seed)
@@ -885,8 +923,9 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
        '.h5m' not in output_file and '.h5z' not in output_file:
         output_file += '.h5'
     output_file_name = os.path.join(os.path.dirname(__file__), output_dir, output_file)
-    if os.path.exists(output_file_name):
-        raise Exception(f'File {output_file_name} already exists')
+    output_file_name = uniquify(output_file_name)
+    # if os.path.exists(output_file_name):
+    #     raise Exception(f'File {output_file_name} already exists')
 
     generations = int(general_config['simulation']['generations'])
     group_number = int(general_config['population']['group_number'])
@@ -900,7 +939,8 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     immigration_phenotype = general_config['population']['immigration_phenotype']
     life_expectancy = int(general_config['population']['life_expectancy'])
     life_expectancy_sd = float(general_config['population']['life_expectancy_sd'])
-    survival_probability = float(general_config['population']['survival_probability'])
+    survival_probability_mean = float(general_config['population']['survival_probability_mean'])
+    survival_probability_sd = float(general_config['population']['survival_probability_sd'])
     ancestry_generations = int(general_config['population']['ancestry_generations'])
 
     model_config_dict = {s: dict(model_config.items(s)) for s in model_config.sections()}
@@ -917,7 +957,8 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
                             immigration_phenotype,
                             life_expectancy,
                             life_expectancy_sd,
-                            survival_probability,
+                            survival_probability_mean,
+                            survival_probability_sd,
                             ancestry_generations,
                             model_config_dict,
                             output_file_name)
@@ -935,7 +976,7 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     for i in range(generations):
         simulation.pass_generation()
         if simulation.stop:
-            return True
+            return False
         progress = cols*i/generations
         if not quiet:
             print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
@@ -972,7 +1013,7 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
         str(alleles_names)
         f.create_dataset('duration', data=generations_duration)
 
-    return False
+    return output_file_name
 
 
 if __name__ == '__main__':
