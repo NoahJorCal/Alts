@@ -42,14 +42,14 @@ args = parser.parse_args()
 
 def run_simulation(output_dir, output_file, seed, quiet):
     start_counter = perf_counter()
-    out_file = simulator_main(output_dir, output_file, seed, quiet)
+    stop, out_file = simulator_main(output_dir, output_file, seed, quiet)
     simulation_duration = perf_counter() - start_counter
-    if not out_file:
+    if stop:
         if not args.quiet:
             print(f'\033[K\033[FSimulation ended because altruism went extinct')
-        return None
+        return None, out_file
     else:
-        return out_file, simulation_duration
+        return simulation_duration, out_file
     # else:
     #     if not args.quiet:
     #         print(f'\033[K\033[FSimulations up to {simulation_index + 1} run in {round(simulation_duration, 2)} seconds. '
@@ -69,19 +69,16 @@ def create_simulation_results():
         #            range(number_of_simulations)]
         results = [pool.apply_async(run_simulation, args=(args.directory, args.output, args.seed, args.quiet))]
         output = [p.get() for p in results]
-    output = [i for i in output if i is not None]
+    # output = [i for i in output if i is not None]
     print(output)
-    simulation_results = os.path.join(os.path.dirname(__file__), args.directory, output[0][0])
-    if output:
+    out_file = os.path.join(os.path.dirname(__file__), args.directory, output[0][1])
+    if output[0][0]:
         if not args.quiet:
-            print(f'\033[K\033[F\033[KEach simulation took {round(mean(output[0][1]), 2)} seconds on average and '
+            print(f'\033[K\033[F\033[KEach simulation took {round(mean(output[0][0]), 2)} seconds on average and '
                   f'{round((perf_counter() - start_time)/60, 2)} minutes in total')
     else:
-        os.remove(simulation_results)
+        os.remove(out_file)
         if not args.quiet:
-            # print('\033[1A', end='\x1b[2K')
-            # print('\033[1A', end='\x1b[2K')
-            # print('\033[1A', end='\x1b[2K')
             print('Altruism went extinct in all simulations, no data generated')
             print('\033[1A', end='\x1b[2K')
             print('\033[1A', end='\x1b[2K')
@@ -89,7 +86,7 @@ def create_simulation_results():
         return True
 
     if not args.quiet:
-        print(f'\x1b[2KThe results of the simulation have been saved in {simulation_results}')
+        print(f'\x1b[2KThe results of the simulation have been saved in {out_file}')
     return False
 
     def print_name_type(name, obj):

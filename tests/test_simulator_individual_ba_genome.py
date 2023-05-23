@@ -28,8 +28,8 @@ def sd_model_configuration():
                           'locus_size': '0',                  # Size of the loci for mutation and recombination
                           'mutation_rate': '0',               # Mutation probability on a position of the genome
                           'recombination_rate': '0'},         # Recombination probability on a position of the genome
-            'neutral': {'alleles': 'neutral > neutral',       # Locus's alleles and inheritance pattern
-                        'initial_frequencies': '0.5, 0.5',    # Initial allele's frequencies in order of appearance
+            'neutral': {'alleles': 'neutral',       # Locus's alleles and inheritance pattern
+                        'initial_frequencies': '1',    # Initial allele's frequencies in order of appearance
                         'locus_size': '0',                    # Size of the loci for mutation and recombination
                         'mutation_rate': '0',                 # Mutation probability on a position of the genome
                         'recombination_rate': '0'}            # Recombination probability on a position of the genome
@@ -44,8 +44,8 @@ def ad_model_configuration():
                           'locus_size': '0',                  # Size of the loci for mutation and recombination
                           'mutation_rate': '0',               # Mutation probability on a position of the genome
                           'recombination_rate': '0'},         # Recombination probability on a position of the genome
-            'neutral': {'alleles': 'neutral > neutral',       # Locus's alleles and inheritance pattern
-                        'initial_frequencies': '0.5, 0.5',    # Initial allele's frequencies in order of appearance
+            'neutral': {'alleles': 'neutral',       # Locus's alleles and inheritance pattern
+                        'initial_frequencies': '1',    # Initial allele's frequencies in order of appearance
                         'locus_size': '0',                    # Size of the loci for mutation and recombination
                         'mutation_rate': '0',                 # Mutation probability on a position of the genome
                         'recombination_rate': '0'}            # Recombination probability on a position of the genome
@@ -60,8 +60,8 @@ def c_model_configuration():
                           'locus_size': '0',                  # Size of the loci for mutation and recombination
                           'mutation_rate': '0',               # Mutation probability on a position of the genome
                           'recombination_rate': '0'},         # Recombination probability on a position of the genome
-            'neutral': {'alleles': 'neutral > neutral',       # Locus's alleles and inheritance pattern
-                        'initial_frequencies': '0.5, 0.5',    # Initial allele's frequencies in order of appearance
+            'neutral': {'alleles': 'neutral',       # Locus's alleles and inheritance pattern
+                        'initial_frequencies': '1',    # Initial allele's frequencies in order of appearance
                         'locus_size': '0',                    # Size of the loci for mutation and recombination
                         'mutation_rate': '0',                 # Mutation probability on a position of the genome
                         'recombination_rate': '0'}            # Recombination probability on a position of the genome
@@ -83,8 +83,8 @@ def c_model_configuration():
      )
 ])
 def test_generate_phenotype_sd_ba(base_general_configuration, sd_model_configuration, genotype, expected_phenotype):
-    simulation = Simulation(*base_general_configuration, sd_model_configuration)
-    individual = Individual(simulation)
+    simulation = Simulation(*base_general_configuration, sd_model_configuration, True)
+    individual = Individual(simulation, 1)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -106,8 +106,8 @@ def test_generate_phenotype_sd_ba(base_general_configuration, sd_model_configura
      )
 ])
 def test_generate_phenotype_ad_ba(base_general_configuration, ad_model_configuration, genotype, expected_phenotype):
-    simulation = Simulation(*base_general_configuration, ad_model_configuration)
-    individual = Individual(simulation)
+    simulation = Simulation(*base_general_configuration, ad_model_configuration, True)
+    individual = Individual(simulation, 1)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -129,8 +129,8 @@ def test_generate_phenotype_ad_ba(base_general_configuration, ad_model_configura
      )
 ])
 def test_generate_phenotype_c_ba(base_general_configuration, c_model_configuration, genotype, expected_phenotype):
-    simulation = Simulation(*base_general_configuration, c_model_configuration)
-    individual = Individual(simulation)
+    simulation = Simulation(*base_general_configuration, c_model_configuration, True)
+    individual = Individual(simulation, 1)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -141,8 +141,8 @@ def test_generate_phenotype_c_ba(base_general_configuration, c_model_configurati
     ([['altruistic', 'altruistic'], ['neutral', 'neutral']])
 ])
 def test_generate_genome(genotype, base_general_configuration, ba_dom_model_configuration):
-    simulation = Simulation(*base_general_configuration, ba_dom_model_configuration)
-    individual = Individual(simulation)
+    simulation = Simulation(*base_general_configuration, ba_dom_model_configuration, True)
+    individual = Individual(simulation, 1)
     individual.genotype = genotype
     individual.generate_genome()
     result_genotype = []
@@ -151,7 +151,7 @@ def test_generate_genome(genotype, base_general_configuration, ba_dom_model_conf
         region = []
         for chromosome in locus.chromosomes:
             region.append(chromosome.allele)
-            if chromosome.snvs:
+            if chromosome.snvs.size > 0:
                 empty_snvs = False
         result_genotype.append(region)
     assert result_genotype == genotype
@@ -159,9 +159,9 @@ def test_generate_genome(genotype, base_general_configuration, ba_dom_model_conf
 
 
 def test_age_individual_ba(sd_model_configuration):
-    general_configuration = [9, 1, 50, 0, 0, 0, 0, None, 8, 0, 1, 3, 10]
-    simulation = Simulation(*general_configuration, sd_model_configuration)
-    individual = Individual(simulation)
+    general_configuration = [9, 1, 50, 50, 50, 0, 0, 0, 0, None, 8, 0, 1, 0, 3, None]
+    simulation = Simulation(*general_configuration, sd_model_configuration, True)
+    individual = Individual(simulation, 1)
     ages = []
     for i in range(8):
         ages.append(individual.age)

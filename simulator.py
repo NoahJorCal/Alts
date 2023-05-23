@@ -267,6 +267,10 @@ class Individual:
     def initial_survival_probability(self):
         return self.__initial_survival_probability
 
+    @initial_survival_probability.setter
+    def initial_survival_probability(self, value):
+        self.__initial_survival_probability = value
+
     @property
     def survival_probability(self):
         return self.__survival_probability
@@ -356,8 +360,9 @@ class Simulation:
             survival_probability_mean,
             survival_probability_sd,
             ancestry_generations,
+            output_file_name,
             model_config_dict,
-            output_file_name='simulation_output.h5'):
+            test):
         self.__generations = generations + 1
         self.__group_number = group_number
         self.__group_size = group_size
@@ -386,8 +391,7 @@ class Simulation:
         self.__newest_ind_id = 0
         self.__output_file_name = output_file_name
         self.__stop = False
-
-        self.last_max_group = 5
+        self.__test = test
 
         for locus in self.__model_config_dict.keys():
             if locus != 'module':
@@ -551,8 +555,9 @@ class Simulation:
         return allele_pairs
 
     def populate_groups(self):
-        with h5py.File(self.__output_file_name, 'w') as _:
-            pass
+        if not self.__test:
+            with h5py.File(self.__output_file_name, 'w') as _:
+                pass
         for group_i in range(self.__group_number):
             group = []
             for ind_i in range(self.__group_size):
@@ -572,41 +577,32 @@ class Simulation:
 
     # Survival or death based on the survival probability of the individual. Represents foraging, predators, etc.
     def selection_event(self):
-        alt_perc = []
+        survivors = []
+        survived = np.zeros(0)
+        survived_list_index = 0
         for group in self.__groups:
-            alts = 0
-            for ind in group:
-                if 'altruistic' in ind.phenotype[0]:
-                    alts += 1
-            alt_perc.append(round(alts/len(group)*100))
-        # print('alt perc', alt_perc)
-        with h5py.File(self.__output_file_name, 'a') as f:
-            survivors = []
-            survived = np.zeros(0)
-            survived_list_index = 0
-            s = []
-            for group in self.__groups:
-                survivors_groups = []
-                new_survived_size = survived_list_index + len(group)
-                survived.resize((new_survived_size,), refcheck=False)
-                for ind_i in range(len(group)):
-                    picker = random.random()
-                    if picker < group[ind_i].survival_probability:
-                        survivors_groups.append(group[ind_i])
-                        survived[survived_list_index + ind_i] = 1
-                    else:
-                        survived[survived_list_index + ind_i] = 0
-                survivors.append(survivors_groups)
-                s.append(round(len(survivors_groups)/len(group)*100))
-                # global_surv.append(round(len(survivors_groups)/len(group)*100))
-                survived_list_index += len(group)
-            # print(self.__groups_indices)
-            # print('survival_prob', list(np.around(self.__calc_avg_survival_prob, decimals=2)))
-            # print('survi', s)
-            # print()
-            self.__groups = survivors
-            generation_group = f[f'/generation_{str(self.current_generation).zfill(len(str(self.__generations)))}']
-            generation_group.create_dataset('survivors', data=survived)
+            survivors_groups = []
+            new_survived_size = survived_list_index + len(group)
+            survived.resize((new_survived_size,), refcheck=False)
+            for ind_i in range(len(group)):
+                picker = random.random()
+                if picker < group[ind_i].survival_probability:
+                    survivors_groups.append(group[ind_i])
+                    survived[survived_list_index + ind_i] = 1
+                else:
+                    survived[survived_list_index + ind_i] = 0
+            survivors.append(survivors_groups)
+            survived_list_index += len(group)
+        # print(self.__groups_indices)
+        # print('survival_prob', list(np.around(self.__calc_avg_survival_prob, decimals=2)))
+        # print('survi', s)
+        # print()
+        self.__groups = survivors
+
+        if not self.__test:
+            with h5py.File(self.__output_file_name, 'a') as f:
+                generation_group = f[f'/generation_{str(self.current_generation).zfill(len(str(self.__generations)))}']
+                generation_group.create_dataset('survivors', data=survived)
 
     def save_avg_survival_prob(self):
         calc_avg_survival_prob = []
@@ -628,7 +624,8 @@ class Simulation:
         survival_probability = np.random.normal(self.__survival_probability_mean,
                                                 self.__survival_probability_sd)
         individual = Individual(self, survival_probability)
-        individual.genotype = self.__immigrants_genotype
+        genotype = [[allele, allele] for allele in self.__immigration_phenotype]
+        individual.genotype = genotype
         individual.generate_genome()
         self.__newest_ind_id = individual.id
         return individual
@@ -646,6 +643,41 @@ class Simulation:
             for i in range(immigrants):
                 group_index = random.choice(range(len(self.__groups)))
                 self.__groups[group_index].append(self.generate_immigrant())
+
+    def delete_empty_groups(self):
+        for group_i in range(len(self.__groups) - 1, - 1, - 1):
+            if len(self.__groups[group_i]) < 2:
+                self.__groups.pop(group_i)
+                np.delete(self.__groups_indices, group_i)
+
+    def discard_old_individuals(self):
+        if self.__life_expectancy == 1 and self.__life_expectancy_sd == 0:
+            new_groups = [[] for _ in range(len(self.__groups))]
+        else:
+            new_groups = []
+            for group in self.__groups:
+                new_group = []
+                for ind in group:
+                    reached_life_expectancy = ind.age_individual()
+                    if not reached_life_expectancy:
+                        new_group.append(ind)
+                new_groups.append(new_group)
+        return new_groups
+
+    def calc_new_groups_missing(self):
+        # Survivors + descendants per survivor
+        expect_new_inds = [len(group) * self.__descendants_per_survivor for group in self.__groups]
+        calc_exp_sp_ratios = [self.__calc_avg_survival_prob[group_i] / self.__exp_avg_survival_prob[group_i]
+                              for group_i in range(len(self.__groups))]
+        calc_new_inds = [expect_new_inds[group_i] * calc_exp_sp_ratios[group_i]
+                         for group_i in range(len(self.__groups))]
+        scaled_new_inds = [round(group_size * sum(expect_new_inds) / sum(calc_new_inds))
+                           for group_size in calc_new_inds]
+        missing_population = self.__population_size_limit - nested_len(self.__groups)
+        if sum(scaled_new_inds) > missing_population:
+            scaled_new_inds = [round(group_size * missing_population / sum(scaled_new_inds))
+                               for group_size in scaled_new_inds]
+        return scaled_new_inds
 
     def generate_offspring_genome(self, reproducers, descendant):
         # Names for altruistic step
@@ -688,26 +720,6 @@ class Simulation:
                 descendant.ancestry[generation] = reproducers[0].ancestry[generation - 1] + \
                                                   reproducers[1].ancestry[generation - 1]
 
-    def discard_old_individuals(self):
-        if self.__life_expectancy == 1 and self.__life_expectancy_sd == 0:
-            new_groups = [[] for _ in range(len(self.__groups))]
-        else:
-            new_groups = []
-            for group in self.__groups:
-                new_group = []
-                for ind in group:
-                    reached_life_expectancy = ind.age_individual()
-                    if not reached_life_expectancy:
-                        new_group.append(ind)
-                new_groups.append(new_group)
-        return new_groups
-
-    def delete_empty_groups(self):
-        for group_i in range(len(self.__groups) - 1, - 1, - 1):
-            if len(self.__groups[group_i]) < 2:
-                self.__groups.pop(group_i)
-                np.delete(self.__groups_indices, group_i)
-
     def divide_big_groups(self, groups):
         split_groups = []
         new_groups_indices = []
@@ -734,35 +746,12 @@ class Simulation:
 
     def reproduce(self):
         self.delete_empty_groups()
-        print([len(group) for group in self.__groups])
-        print([len(group) + len(group) * self.__descendants_per_survivor
-                               for group in self.__groups])
         new_groups = self.discard_old_individuals()
+        # print('wo old', len(new_groups))
         offspring = [[] for _ in range(len(self.__groups))]
-        # print('before', [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups])
-        # Survivors + descendants per survivor
-        exp_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor
-                           for group in self.__groups]
-        calc_exp_sp_ratios = [self.__calc_avg_survival_prob[group_i] / self.__exp_avg_survival_prob[group_i]
-                              for group_i in range(len(self.__groups))]
-        print(calc_exp_sp_ratios)
-        mean_ratios = sum(calc_exp_sp_ratios) / len(calc_exp_sp_ratios)
-        print(mean_ratios)
-        calc_exp_sp_ratios = [(calc_exp_sp_ratios[group_i] - mean_ratios) * 2 + 1
-                              for group_i in range(len(self.__groups))]
-        print(calc_exp_sp_ratios)
-        new_group_sizes = [round(exp_group_sizes[group_i] * calc_exp_sp_ratios[group_i])
-                           for group_i in range(len(self.__groups))]
-        print(new_group_sizes)
-        # print('after', new_group_sizes)
-        # print()
-        # new_group_sizes = [len(group) + len(group) * self.__descendants_per_survivor for group in self.__groups]
-        if sum(new_group_sizes) > self.__population_size_limit:
-            new_group_sizes = [round(group_size * self.__population_size_limit / sum(new_group_sizes))
-                               for group_size in new_group_sizes]
+        new_group_missing = self.calc_new_groups_missing()
         for group_index in range(len(self.__groups)):
-            group_size = new_group_sizes[group_index] - len(new_groups[group_index])
-
+            group_size = new_group_missing[group_index]
             while len(offspring[group_index]) < group_size:
                 reproducers = random.sample(self.__groups[group_index], 2)
                 survival_probability = (reproducers[0].initial_survival_probability +
@@ -773,15 +762,16 @@ class Simulation:
                 self.__newest_ind_id = new_individual.id
                 # noinspection PyTypeChecker
                 offspring[group_index].append(new_individual)
-        new_groups = self.group_exchange(new_groups, offspring, new_group_sizes)
+        new_groups = self.group_exchange(new_groups, offspring)
         self.divide_big_groups(new_groups)
 
-    def group_exchange(self, survivors, newborns, group_sizes):
+    def group_exchange(self, survivors, newborns):
         if len(survivors) > 1:
             # new_groups = [[] for _ in range(len(self.__groups))]
             for from_group_index in range(len(survivors)):
+                group_size = len(survivors[from_group_index]) + len(newborns[from_group_index])
                 # Number of emigrants of the group
-                emigrants = round(group_sizes[from_group_index] * self.__group_migration)
+                emigrants = round(group_size * self.__group_migration)
                 target_indexes = list(range(len(survivors)))
                 # Possible target groups
                 target_indexes.remove(from_group_index)
@@ -789,7 +779,9 @@ class Simulation:
                     if len(newborns[from_group_index]) > emigrants:
                         for i in range(emigrants):
                             emigrant = newborns[from_group_index].pop(random.randrange(len(newborns[from_group_index])))
+                            print(emigrant.id)
                             target_group_index = random.choice(target_indexes)
+                            print(target_group_index)
                             survivors[target_group_index].append(emigrant)
                     else:
                         emigrants_left = emigrants - len(newborns[from_group_index])
@@ -808,6 +800,9 @@ class Simulation:
                         survivors[target_group_index].append(emigrant)
             for group_i in range(len(survivors)):
                 survivors[group_i].extend(newborns[group_i])
+            return survivors
+        else:
+            survivors[0].extend(newborns[0])
             return survivors
 
     def save_generation_data(self):
@@ -854,11 +849,8 @@ class Simulation:
             altruists = 0
             for altruistic_index in altruistic_indexes:
                 altruists += np.count_nonzero(phenotypes == altruistic_index)
-            # if not altruists:
-            #     self.__stop = True
-            # if self.last_max_group > round(max(groups)) + 1:
-            #     raise Exception(self.current_generation)
-            self.last_max_group = round(max(groups)) + 1
+            if not altruists:
+                self.__stop = True
             generation_group.create_dataset('group', data=groups)
             generation_group.create_dataset('phenotype', data=phenotypes)
             generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
@@ -890,10 +882,11 @@ class Simulation:
         for haplotype_set in haplotypes_set:
             haplotypes.append(np.array(list(haplotype_set)))
 
-        with h5py.File(self.__output_file_name, 'a') as f:
-            f.create_group('haplotypes')
-            for locus_i in range(len(self.loci)):
-                f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
+        if not self.__test:
+            with h5py.File(self.__output_file_name, 'a') as f:
+                f.create_group('haplotypes')
+                for locus_i in range(len(self.loci)):
+                    f.create_dataset(f'haplotypes/haplotypes_{self.loci[locus_i]}', data=haplotypes[locus_i])
 
     def save_snvs(self):
         snvs_lists = [[] for _ in range(len(self.loci))]
@@ -960,8 +953,9 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
                             survival_probability_mean,
                             survival_probability_sd,
                             ancestry_generations,
+                            output_file_name,
                             model_config_dict,
-                            output_file_name)
+                            test=False)
     simulation.populate_groups()
     simulation.save_generation_data()
 
@@ -976,7 +970,7 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     for i in range(generations):
         simulation.pass_generation()
         if simulation.stop:
-            return False
+            return True, output_file_name
         progress = cols*i/generations
         if not quiet:
             print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
@@ -1013,7 +1007,7 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
         str(alleles_names)
         f.create_dataset('duration', data=generations_duration)
 
-    return output_file_name
+    return False, output_file_name
 
 
 if __name__ == '__main__':
