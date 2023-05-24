@@ -1,9 +1,11 @@
 #!/usr/bin/python3
-import math
+from math import exp
 import random
 from configparser import ConfigParser
 import sys
 from os import path
+import os
+import time
 # Add the alts directory to the Python path
 sys.path.append(path.join(path.dirname(__file__), '..'))
 
@@ -17,6 +19,19 @@ exp_factor_config = float(general_config['population']['benefit_relatedness_exp_
 cost_benefit_ratio_config = float(general_config['population']['cost_benefit_ratio'])
 minimum_benefit_config = float(general_config['population']['minimum_benefit'])
 maximum_cost_config = float(general_config['population']['maximum_cost'])
+
+
+def exp_f(x, factor, penetrance, min_benefit):
+    y = exp(factor * x) - 1
+    minimum = exp(factor * 0) - 1
+    maximum = exp(factor * 1) - 1
+    y = (y - minimum) / (maximum - minimum) * penetrance
+    ''' If the calculated benefit from the relatedness is less than the minimum benefit,
+    the later will be the final benefit '''
+    if y < min_benefit:
+        return min_benefit
+    else:
+        return y
 
 
 def get_possible_recipients(altruist, group):
@@ -44,11 +59,7 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
         if relatedness_coef == 0:
             benefit = minimum_benefit
         else:
-            benefit = math.exp(exp_factor * (relatedness_coef - 1)) * penetrance
-            ''' If the calculated benefit from the relatedness is less than the minimum benefit,
-            the later will be the final benefit '''
-            if benefit < minimum_benefit:
-                benefit = minimum_benefit
+            benefit = exp_f(relatedness_coef, exp_factor, penetrance, minimum_benefit)
         # The cost is calculated from the benefit and the survival probabilities are recalculated
         cost = benefit * cost_benefit_ratio
         ''' If the cost surpass the maximum cost the altruist will sacrifice up to the maximum,
