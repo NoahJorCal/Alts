@@ -84,7 +84,7 @@ def c_model_configuration():
 ])
 def test_generate_phenotype_sd_ba(base_general_configuration, sd_model_configuration, genotype, expected_phenotype):
     simulation = Simulation(*base_general_configuration, sd_model_configuration, True)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -107,7 +107,7 @@ def test_generate_phenotype_sd_ba(base_general_configuration, sd_model_configura
 ])
 def test_generate_phenotype_ad_ba(base_general_configuration, ad_model_configuration, genotype, expected_phenotype):
     simulation = Simulation(*base_general_configuration, ad_model_configuration, True)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -130,7 +130,7 @@ def test_generate_phenotype_ad_ba(base_general_configuration, ad_model_configura
 ])
 def test_generate_phenotype_c_ba(base_general_configuration, c_model_configuration, genotype, expected_phenotype):
     simulation = Simulation(*base_general_configuration, c_model_configuration, True)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     # The genotype setter already calls the generate_phenotype() method, but I will call it again in case this changes
     individual.genotype = genotype
     individual.generate_phenotype()
@@ -142,7 +142,7 @@ def test_generate_phenotype_c_ba(base_general_configuration, c_model_configurati
 ])
 def test_generate_genome(genotype, base_general_configuration, ba_dom_model_configuration):
     simulation = Simulation(*base_general_configuration, ba_dom_model_configuration, True)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = genotype
     individual.generate_genome()
     result_genotype = []
@@ -161,7 +161,7 @@ def test_generate_genome(genotype, base_general_configuration, ba_dom_model_conf
 def test_age_individual_ba(sd_model_configuration):
     general_configuration = [9, 1, 50, 50, 50, 0, 0, 0, 0, None, 8, 0, 1, 0, 3, None]
     simulation = Simulation(*general_configuration, sd_model_configuration, True)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     ages = []
     for i in range(8):
         ages.append(individual.age)

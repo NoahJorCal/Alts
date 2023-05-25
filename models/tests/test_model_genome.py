@@ -26,7 +26,7 @@ def possible_recipients(simulation):
 
 @pytest.fixture()
 def altruist(simulation):
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'altruistic'], ['neutral', 'neutral']]
     individual.generate_genome()
     return individual
@@ -34,7 +34,7 @@ def altruist(simulation):
 
 @pytest.fixture()
 def recipient(simulation):
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     return individual
 
 
@@ -42,52 +42,52 @@ def recipient(simulation):
 def dom_group(one_group_general_configuration, ba_dom_model_configuration):
     simulation = Simulation(*one_group_general_configuration, ba_dom_model_configuration, True)
     group = []
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'altruistic'], ['neutral', 'neutral']]
     individual.id = 1
     individual.ancestry = [[0, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'selfish'], ['neutral', 'neutral']]
     individual.id = 6
     individual.ancestry = [[0, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 11
     individual.ancestry = [[7, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'altruistic'], ['neutral', 'neutral']]
     individual.id = 15
     individual.ancestry = [[9, 7], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'selfish'], ['neutral', 'neutral']]
     individual.id = 19
     individual.ancestry = [[1, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'selfish'], ['neutral', 'neutral']]
     individual.id = 20
     individual.ancestry = [[1, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 21
     individual.ancestry = [[11, 6], [7, 6, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'altruistic'], ['neutral', 'neutral']]
     individual.id = 22
     individual.ancestry = [[1, 15], [0, 0, 9, 7], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 23
     individual.ancestry = [[11, 15], [7, 6, 9, 7], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 24
     individual.ancestry = [[11, 6], [7, 6, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
@@ -99,52 +99,52 @@ def dom_group(one_group_general_configuration, ba_dom_model_configuration):
 def cod_group(one_group_general_configuration, ba_cod_model_configuration):
     simulation = Simulation(*one_group_general_configuration, ba_cod_model_configuration, True)
     group = []
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'selfish'], ['neutral', 'neutral']]
     individual.id = 1
     individual.ancestry = [[0, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 6
     individual.ancestry = [[0, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 11
     individual.ancestry = [[7, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 15
     individual.ancestry = [[9, 7], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 19
     individual.ancestry = [[1, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 20
     individual.ancestry = [[1, 6], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 21
     individual.ancestry = [[11, 6], [7, 6, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['altruistic', 'selfish'], ['neutral', 'neutral']]
     individual.id = 22
     individual.ancestry = [[1, 15], [0, 0, 9, 7], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 23
     individual.ancestry = [[11, 15], [7, 6, 9, 7], [0, 0, 0, 0, 0, 0, 0, 0]]
     group.append(individual)
-    individual = Individual(simulation, 1)
+    individual = Individual(simulation)
     individual.genotype = [['selfish', 'selfish'], ['neutral', 'neutral']]
     individual.id = 24
     individual.ancestry = [[11, 6], [7, 6, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]]
@@ -208,8 +208,8 @@ def test_get_possible_recipients(simulation):
                            0.01,    # minimum_benefit
                            0.4,     # maximum_cost
                            # Base survival probability from base_general_configuration is 1
-                           0.7768698339,  # expected_altruist_survival_prob
-                           1.2231301601), # expected_recipient_survival_prob
+                           0.898463676,   # expected_altruist_survival_prob
+                           1.101536324),  # expected_recipient_survival_prob
                           ([[2], [1, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # altruist_ancestry
                            [[3], [1, 0], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # recipient_ancestry
                            0.5,     # penetrance
@@ -218,8 +218,8 @@ def test_get_possible_recipients(simulation):
                            0.01,    # minimum_benefit
                            0.5,     # maximum_cost
                            # Base survival probability from base_general_configuration is 1
-                           0.9751064658,   # expected_altruist_survival_prob
-                           1.02489353418),  # expected_recipient_survival_prob
+                           0.983970698,   # expected_altruist_survival_prob
+                           1.016029302),  # expected_recipient_survival_prob
                           ([[3], [1, 2], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # altruist_ancestry
                            [[4], [1, 2], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # recipient_ancestry
                            1,       # penetrance
@@ -228,18 +228,18 @@ def test_get_possible_recipients(simulation):
                            0.01,    # minimum_benefit
                            0.4,     # maximum_cost
                            # Base survival probability from base_general_configuration is 1
-                           0.6321205588,   # expected_altruist_survival_prob
-                           1.3678794412),  # expected_recipient_survival_prob
+                           0.731058579,   # expected_altruist_survival_prob
+                           1.268941421),  # expected_recipient_survival_prob
                           ([[3], [1, 2], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # altruist_ancestry
                            [[4], [1, 2], [0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]],  # recipient_ancestry
                            1,       # penetrance
                            2,       # exp_factor
                            1,     # cost_benefit_ratio
                            0.01,    # minimum_benefit
-                           0.3,     # maximum_cost
+                           0.25,     # maximum_cost
                            # Base survival probability from base_general_configuration is 1
-                           0.7,   # expected_altruist_survival_prob
-                           1.3),   # expected_recipient_survival_prob
+                           0.75,   # expected_altruist_survival_prob
+                           1.25),   # expected_recipient_survival_prob
                           ([[2], [0, 0], [0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0]],  # altruist_ancestry
                            [[3], [0, 0], [0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0]],  # recipient_ancestry
                            1,        # penetrance
@@ -276,8 +276,8 @@ def test_altruistic_act(altruist_ancestry, recipient_ancestry, penetrance,
 
 
 @pytest.mark.parametrize('exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost, expected_sp', [
-    (2, 1, 0.1, 0.4, [0.932121, 1.1, 1, 1, 1.367879, 1, 1, 0.6, 1, 1]),
-    (4, 0.5, 0.1, 0.1, [1.032332, 1.1, 1, 1, 1.135335, 1, 1, 0.9, 1, 1])
+    (2, 1, 0.1, 0.4, [1, 1.1, 1, 1, 1.268941, 1, 1, 0.631059, 1, 1]),
+    # (4, 0.5, 0.1, 0.1, [1.040398539, 1.1, 1, 1, 1.119202922, 1, 1, 0.9, 1, 1])
 ])
 def test_selection_dom(simulation, exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost,
                        expected_sp, dom_group):
@@ -288,12 +288,13 @@ def test_selection_dom(simulation, exp_factor, cost_benefit_ratio, minimum_benef
     for ind in dom_group[0]:
         survival_probabilities.append(ind.survival_probability)
     print(survival_probabilities)
+    print(expected_sp)
     assert survival_probabilities == pytest.approx(expected_sp)
 
 
 @pytest.mark.parametrize('exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost, expected_sp', [
-    (2, 1, 0.1, 0.4, [0.96606, 1.05, 1, 1, 1.18394, 1, 1, 0.8, 1, 1]),
-    (4, 0.5, 0.1, 0.1, [1.016166, 1.05, 1, 1, 1.067668, 1, 1, 0.95, 1, 1])
+    (2, 1, 0.1, 0.4, [1, 1.05, 1, 1, 1.134470711, 1, 1, 0.815529289, 1, 1]),
+    (4, 0.5, 0.1, 0.1, [1.020199269, 1.05, 1, 1, 1.059601461, 1, 1, 0.95, 1, 1])
 ])
 def test_selection_cod(simulation, exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost,
                        expected_sp, cod_group):

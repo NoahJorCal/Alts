@@ -1,0 +1,10 @@
+# Output files
+output/
+snvs/
+
+# text files
+*.txt
+
+# plots
+*.svg
+*.png

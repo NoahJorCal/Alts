@@ -40,7 +40,7 @@ def one_group_general_configuration():
             None,  # 9:  Default phenotype for immigrants
             100,   # 10:  Mean life expectancy
             0,     # 11:  Standard deviation of the life expectancy
-            0.5,   # 12: Mean survival probability assigned to each individual at the beginning of the generation
+            1,     # 12: Mean survival probability assigned to each individual at the beginning of the generation
             0,     # 13: Standard deviation of the survival probability
             3,     # 14: Generations taken into account in individuals' ancestry
             None]  # 15: Output file name

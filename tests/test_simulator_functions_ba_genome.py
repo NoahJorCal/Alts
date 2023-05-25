@@ -139,14 +139,13 @@ def test_reset_survival_prob(ba_dom_model_configuration):
 def test_save_generation_data(ba_cod_model_configuration):
     np.random.seed(665416)
     random.seed(665416)
-    general_configuration = [1, 2, 10, 20, 20, 1, 0, 0, 0, None, 5, 0, 1, 0, 3, 'test.h5']
+    general_configuration = [1, 2, 10, 20, 20, 1, 0, 0, 0, None, 5, 0, 2, 0, 3, 'test.h5']
     simulation = Simulation(*general_configuration, ba_cod_model_configuration, False)
     simulation.populate_groups()
     simulation.save_generation_data()
     for i in range(1):
         simulation.pass_generation()
     with h5py.File('test.h5', 'a') as f:
-        f.visititems(print_name_type)
         survivors = list(f['generation_0/survivors'][:])
         group_0 = list(f['generation_0/group'][:])
         group_1 = list(f['generation_1/group'][:])
@@ -296,18 +295,16 @@ def test_immigration_bag(general_configuration, ba_dom_model_configuration):
     initial_phenotypes = {"['selfish', 'neutral']": 0,
                           "['altruistic', 'neutral']": 0}
     for group_i in range(len(simulation.groups)):
-        simulation.groups[group_i] = simulation.groups[group_i][0:int(len(simulation.groups[group_i]) / 2)]
+        simulation.groups[group_i] = simulation.groups[group_i][0:round(len(simulation.groups[group_i]) / 2)]
         for ind in simulation.groups[group_i]:
             initial_phenotypes[str(ind.phenotype)] += 1
     current_population_size = 0
     for count in initial_phenotypes.values():
         current_population_size += count
-    full_population_size = general_configuration[2]
+    missing_population = current_population_size * general_configuration[5]
     immigrant_proportion = general_configuration[8]
     immigrant_phenotype = general_configuration[9].replace(' ', '').split(',')
-    immigrants = min(round(full_population_size * immigrant_proportion),
-                     full_population_size - current_population_size)
-
+    immigrants = min(round(missing_population * immigrant_proportion), missing_population)
     expected_phenotypes = initial_phenotypes
     expected_phenotypes[f"{immigrant_phenotype}"] += immigrants
 
@@ -363,8 +360,9 @@ def test_calc_new_groups_missing(general_configuration, new_survival_probability
         ind.survival_probability = new_survival_probability
     simulation.save_avg_survival_prob()
     simulation.selection_event()
+    new_groups = simulation.discard_old_individuals()
     expected_population_size = sum([len(group) for group in simulation.groups]) * 2
-    result_sizes = simulation.calc_new_groups_missing()
+    result_sizes = simulation.calc_new_groups_missing(new_groups)
     simulation_groups_sizes = [len(group) for group in simulation.groups]
     result_population_size = sum(result_sizes) + sum(simulation_groups_sizes)
     assert result_sizes == expected_sizes
@@ -394,10 +392,10 @@ def test_generate_offspring_genome_bag(sire_genotype, dam_genotype, expected_gen
     np.random.seed(221317)
     random.seed(221317)
     simulation = Simulation(*base_general_configuration, ba_dom_model_configuration, True)
-    sire = Individual(simulation, 1)
+    sire = Individual(simulation)
     sire.genotype = sire_genotype
     sire.generate_genome()
-    dam = Individual(simulation, 1)
+    dam = Individual(simulation)
     dam.genotype = dam_genotype
     dam.generate_genome()
 
@@ -405,7 +403,7 @@ def test_generate_offspring_genome_bag(sire_genotype, dam_genotype, expected_gen
     dam_chromosomes = [[chromosome for chromosome in locus.chromosomes] for locus in dam.genome.loci]
     reproducers_chromosomes = [sire_chromosomes, dam_chromosomes]
 
-    descendant = Individual(simulation, 1)
+    descendant = Individual(simulation)
     simulation.generate_offspring_genome([sire, dam], descendant)
     chromosomes_origin = []
     for locus in descendant.genome.loci:
@@ -434,14 +432,14 @@ def test_generate_offspring_genome_bag(sire_genotype, dam_genotype, expected_gen
 def test_generate_offspring_ancestry_bag(sire_id, sire_ancestry, dam_id, dam_ancestry, expected_ancestry,
                                          base_general_configuration, ba_dom_model_configuration):
     simulation = Simulation(*base_general_configuration, ba_dom_model_configuration, True)
-    sire = Individual(simulation, 1)
+    sire = Individual(simulation)
     sire.ancestry = sire_ancestry
     sire.id = sire_id
-    dam = Individual(simulation, 1)
+    dam = Individual(simulation)
     dam.ancestry = dam_ancestry
     dam.id = dam_id
 
-    descendant = Individual(simulation, 1)
+    descendant = Individual(simulation)
     simulation.generate_offspring_ancestry([sire, dam], descendant)
     assert descendant.ancestry == expected_ancestry
 
@@ -481,10 +479,10 @@ def test_reproduce_bag(ba_dom_model_configuration):
     for ind in simulation.groups[0]:
         individuals.append(ind.id)
 
-    assert len(simulation.groups[0]) == 9
-    assert reproducers_ids == [[4, 10], [2, 7], [7, 2], [9, 3]]
-    assert individuals == [2, 3, 4, 7, 9, 11, 12, 13, 14]
-    assert new_survival_probabilities == [0.7, 0.6, 0.6, 0.5]
+    assert len(simulation.groups[0]) == 10
+    assert reproducers_ids == [[4, 10], [2, 7], [7, 2], [9, 3], [10, 7]]
+    assert individuals == [2, 3, 4, 7, 9, 11, 12, 13, 14, 15]
+    assert new_survival_probabilities == [0.7, 0.6, 0.6, 0.5, 0.6]
 
 
 # The proportion of the population configured will emigrate out of the population
