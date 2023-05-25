@@ -22,6 +22,11 @@ maximum_cost_config = float(general_config['population']['maximum_cost'])
 
 
 def exp_f(x, factor, penetrance, min_benefit):
+    if factor == 0:
+        if x * penetrance < min_benefit:
+            return min_benefit
+        else:
+            return x * penetrance
     y = exp(factor * x) - 1
     minimum = exp(factor * 0) - 1
     maximum = exp(factor * 1) - 1
@@ -67,7 +72,6 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
         if maximum_cost - added_cost < cost:
             cost = maximum_cost - added_cost
             benefit = cost / cost_benefit_ratio
-
         recipient.survival_probability += benefit
         altruist.survival_probability -= cost
         return added_cost + cost
