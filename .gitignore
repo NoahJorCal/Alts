@@ -8,3 +8,7 @@ snvs/
 # plots
 *.svg
 *.png
+
+# git
+.gitignore
+.git
