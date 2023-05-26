@@ -1,6 +1,10 @@
+# Configuration files
+*.ini
+
 # Output files
 output/
 snvs/
+*.h5
 
 # text files
 *.txt
