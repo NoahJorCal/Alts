@@ -27,7 +27,7 @@ py_module = 'models.' + model_config['module']['name']
 model_module = __import__(py_module, fromlist=[''])
 
 
-# Print H5PY file contents
+# Print HDF5 file contents
 def print_name_type(name, obj):
     print(name, type(obj))
 
@@ -439,7 +439,7 @@ class Simulation:
     :param float survival_probability_mean: Mean of the survival probability normal distribution.
     :param float life_expectancy_sd: Standard deviation of the survival probability normal distribution.
     :param int ancestry_generations: Number of generations taken into account in the pedigree for relatedness.
-    :param str output_file_name: Name of the H5PY file where the summary of the simulation will be stored.
+    :param str output_file_name: Name of the HDF5 file where the summary of the simulation will be stored.
     :param dictionary model_config_dict: Dictionary with the configuration of the genetic model.
     :param bool test: If True prevents creating output file when running tests.
     """
@@ -675,7 +675,7 @@ class Simulation:
 
     def populate_groups(self):
         """
-        Initializes the groups with the specified number of individuals in each one and creates the output H5PY file.
+        Initializes the groups with the specified number of individuals in each one and creates the output HDF5 file.
         """
         if not self.__test:
             # Creates the output file if the class was not called from a test
@@ -1016,7 +1016,7 @@ class Simulation:
         :return:
         """
         with h5py.File(self.__output_file_name, 'a') as f:
-            # The H5PY file will have a group for each generation
+            # The HDF5 file will have a group for each generation
             generation_group = f.create_group(
                 f'generation_{str(self.current_generation).zfill(len(str(self.__generations)))}')
             # Alleles of each locus to save the genotype as integers
@@ -1065,7 +1065,7 @@ class Simulation:
             if not altruists:
                 self.__stop = True
             else:
-                # If the simulation does not stop, the data is saved in the H5PY file
+                # If the simulation does not stop, the data is saved in the HDF5 file
                 generation_group.create_dataset('group', data=groups)
                 generation_group.create_dataset('phenotype', data=phenotypes)
                 generation_group['phenotype'].attrs['phenotype_names'] = self.__alleles_combinations
@@ -1077,9 +1077,9 @@ class Simulation:
         Simulation one generation:\n
         1. Resets the survival probabilities of the individuals\n
         2. Altruists help other individuals\n
-        3. The average initial and modified survival probabilities are calculated\n
+        3. The average initial and modified survival probabilities is calculated\n
         4. Individuals die or survive based on their survival probability\n
-        5. Migration of the whole population\n
+        5. Migration at the population level\n
         6. Reproduction, which include migration between groups\n
         7. The data of the generation is saved
         """
@@ -1143,9 +1143,9 @@ class Simulation:
 def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     """
     Main function of the simulation that gets the configuration from the config.ini file, initializes the Simulation
-    object, runs the number of generations configured and adds the metadata of the H5PY file.
-    :param str output_dir: Output directory name where the H5PY files will be stored.
-    :param str output_file: Output H5PY file name where the data will be stored.
+    object, runs the number of generations configured and adds the metadata of the HDF5 file.
+    :param str output_dir: Output directory name where the HDF5 files will be stored.
+    :param str output_file: Output HDF5 file name where the data will be stored.
     :param int sim_seed: Seed used to fix simulation's result, defaults to None.
     :param bool quiet: Flag to avoid printing the program's feedback, defaults to False.
     :return: A tuple with whether the simulation ended because of lack of altruists or individuals and the name of the
@@ -1157,7 +1157,7 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
         np.random.seed(sim_seed)
     # The output directory is created if it did not exist
     makedirs(output_dir, exist_ok=True)
-    # The extension is added to the H5PY file if it was not present and the name is uniquified
+    # The extension is added to the HDF5 file if it was not present and the name is uniquified
     if '.h5' not in output_file and '.hdf5' not in output_file and \
        '.h5p' not in output_file and '.he5' not in output_file and \
        '.h5m' not in output_file and '.h5z' not in output_file:
