@@ -42,8 +42,6 @@ altruist_selfish_ratio_pgen_bool = general_config['output']['altruist_selfish_ra
 survivors_pgen_bool = general_config['output']['survivors_pgen'].lower() in save_words
 # Number of total survivors by the end of the generation based on altruist/selfish group ratio
 survivors_pgr_pgen_bool = general_config['output']['survivors_pgr_pgen'].lower() in save_words
-# Haplotypes of each locus
-haplotypes_bool = general_config['output']['haplotypes'].lower() in save_words
 
 
 def save_phenotypes_pgen(phenotype, phenotype_names, generation, phenotypes_list):

@@ -1084,6 +1084,11 @@ class Simulation:
         7. The data of the generation is saved
         """
         # print('generation', self.current_generation)
+        # d = {'selfish': 0, 'selfish_altruistic': 0, 'altruistic': 0}
+        # for g in self.__groups:
+        #     for i in g:
+        #         d[str(i.phenotype[0])] += 1
+        # print(d)
         self.reset_survival_prob()
         model_module.selection(self.groups)
         self.save_avg_survival_prob()
@@ -1213,17 +1218,18 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     generation_start = time.perf_counter()
 
     # Progress bar
-    bar_msg = 'Simulation progress: '
-    cols = get_terminal_size().columns - len(bar_msg)
-    bar_char = '█'
-    bar_end_chars = ' ▏▎▍▌▋▊▉'
+    if not quiet:
+        bar_msg = 'Simulation progress: '
+        cols = get_terminal_size().columns - len(bar_msg)
+        bar_char = '█'
+        bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(generations):
         simulation.pass_generation()
         # If there are no more altruists or individuals the simulation stops
         if simulation.stop:
             return True, output_file_name
-        progress = cols*i/generations
         if not quiet:
+            progress = cols*i/generations
             print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
                   ' ' * (cols - int(progress) - 1), end='')
         generation_end = time.perf_counter()
