@@ -90,7 +90,15 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
     random.shuffle(possible_recipients)
     recipient = possible_recipients.pop()
     # The altruist will only help the selected individual if it has equal or less survival probability
+    # sp_difference = altruist.survival_probability - recipient.survival_probability
+    # if random.random() < (1 / (1 + exp(-sp_difference * 100))):
     if recipient.survival_probability <= altruist.survival_probability:
+        act_altruistically = random.random() < 0.95
+    else:
+        act_altruistically = random.random() < 0.005
+    if act_altruistically:
+
+        # if recipient.survival_probability <= altruist.survival_probability:
         # The ancestry list is prepared for the calculation of the relatedness
         recipient_ancestry = [[recipient.id]]
         recipient_ancestry.extend(recipient.ancestry)
@@ -117,7 +125,23 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
         return added_cost
 
 
-def selection(groups,
+def selfish_act(selfish, possible_recipients, benefit, benefit_cost_ratio, max_benefit, added_benefit, d):
+    random.shuffle(possible_recipients)
+    competitor = possible_recipients.pop()
+    # d[competitor.phenotype[0]][0] += 1
+    if competitor.survival_probability >= selfish.survival_probability:
+        d[competitor.phenotype[0]][0] += 1
+        if max_benefit - added_benefit < benefit:
+            benefit = max_benefit - added_benefit
+        cost = benefit * benefit_cost_ratio
+        selfish.survival_probability += benefit
+        competitor.survival_probability -= cost
+        return added_benefit + benefit
+    else:
+        return added_benefit
+
+
+def selection(groups, d,
               exp_factor=exp_factor_config, cost_benefit_ratio=cost_benefit_ratio_config,
               minimum_benefit=minimum_benefit_config, maximum_cost=maximum_cost_config):
     """
@@ -130,6 +154,51 @@ def selection(groups,
     :param float maximum_cost: When the added cost reaches the maximum cost the benefit in the interaction will be the
     remaining cost to reach the maximum.
     """
+    # for group in groups:
+    #     for individual in group:
+    #         # If the individual is altruistic homozygous
+    #         if individual.phenotype[0] == 'altruistic':
+    #             possible_recipients = get_possible_recipients(individual, group)
+    #             if len(possible_recipients) != 0:
+    #                 added_cost = 0
+    #                 while maximum_cost > added_cost:
+    #                     # If the new added cost ends up being higher than the maximum cost,
+    #                     # the last interaction will not be reverted, so in some cases,
+    #                     # the individual will have sacrificed more fitness than expected
+    #                     added_cost = altruistic_act(individual, possible_recipients, 1, added_cost,
+    #                                                 exp_factor, cost_benefit_ratio,
+    #                                                 minimum_benefit, maximum_cost)
+    #                     if len(possible_recipients) == 0:
+    #                         break
+    #         # If the individual is altruistic heterozygous
+    #         elif '_' in individual.phenotype[0]:
+    #             possible_recipients = get_possible_recipients(individual, group)
+    #             if len(possible_recipients) != 0:
+    #                 added_cost = 0
+    #                 while (maximum_cost * 0.5) > added_cost:
+    #                     # If the new added cost ends up being higher than the maximum cost,
+    #                     # the last interaction will not be reverted, so in some cases,
+    #                     # the individual will have sacrificed more fitness than expected
+    #                     added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
+    #                                                 exp_factor, cost_benefit_ratio,
+    #                                                 minimum_benefit, maximum_cost)
+    #                     if len(possible_recipients) == 0:
+    #                         break
+    #         elif individual.phenotype[0] == 'selfish':
+    #             benefit = 0.02
+    #             benefit_cost_ratio = 1.5
+    #             max_benefit = 0.24
+    #             possible_recipients = get_possible_recipients(individual, group)
+    #             if len(possible_recipients) != 0:
+    #                 added_benefit = 0
+    #                 while max_benefit > added_benefit:
+    #                     # If the new added cost ends up being higher than the maximum cost,
+    #                     # the last interaction will not be reverted, so in some cases,
+    #                     # the individual will have sacrificed more fitness than expected
+    #                     added_benefit = selfish_act(individual, possible_recipients, benefit, benefit_cost_ratio, max_benefit, added_benefit, d)
+    #                     if len(possible_recipients) == 0:
+    #                         break
+
     for group in groups:
         for individual in group:
             # If the individual is altruistic homozygous
@@ -146,17 +215,67 @@ def selection(groups,
                                                     minimum_benefit, maximum_cost)
                         if len(possible_recipients) == 0:
                             break
-            # If the individual is altruistic heterozygous
-            elif '_' in individual.phenotype[0]:
+            elif individual.phenotype[0] == 'selfish':
+                benefit = 0.01
+                benefit_cost_ratio = 3
+                max_benefit = 0.25
                 possible_recipients = get_possible_recipients(individual, group)
                 if len(possible_recipients) != 0:
-                    added_cost = 0
-                    while (maximum_cost * 0.5) > added_cost:
+                    added_benefit = 0
+                    while max_benefit > added_benefit:
                         # If the new added cost ends up being higher than the maximum cost,
                         # the last interaction will not be reverted, so in some cases,
                         # the individual will have sacrificed more fitness than expected
-                        added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
-                                                    exp_factor, cost_benefit_ratio,
-                                                    minimum_benefit, maximum_cost)
+                        added_benefit = selfish_act(individual, possible_recipients, benefit, benefit_cost_ratio, max_benefit, added_benefit, d)
                         if len(possible_recipients) == 0:
                             break
+            else:
+                if random.random() < 0.5:
+                    possible_recipients = get_possible_recipients(individual, group)
+                    if len(possible_recipients) != 0:
+                        added_cost = 0
+                        while maximum_cost > added_cost:
+                            # If the new added cost ends up being higher than the maximum cost,
+                            # the last interaction will not be reverted, so in some cases,
+                            # the individual will have sacrificed more fitness than expected
+                            added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
+                                                        exp_factor, cost_benefit_ratio,
+                                                        minimum_benefit, maximum_cost)
+                            if len(possible_recipients) == 0:
+                                break
+                    else:
+                        benefit = 0.005
+                        benefit_cost_ratio = 1.5
+                        max_benefit = 0.125
+                        possible_recipients = get_possible_recipients(individual, group)
+                        if len(possible_recipients) != 0:
+                            added_benefit = 0
+                            while max_benefit > added_benefit:
+                                # If the new added cost ends up being higher than the maximum cost,
+                                # the last interaction will not be reverted, so in some cases,
+                                # the individual will have sacrificed more fitness than expected
+                                added_benefit = selfish_act(individual, possible_recipients, benefit, benefit_cost_ratio, max_benefit, added_benefit, d)
+                                if len(possible_recipients) == 0:
+                                    break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

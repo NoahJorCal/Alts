@@ -1057,12 +1057,16 @@ class Simulation:
             # Index of phenotypes with altruistic alleles
             altruistic_indexes = [i for i, item in enumerate(self.__alleles_combinations) if re.search(
                 r'altruistic', item)]
+
+            selfish_indexes = [i for i, item in enumerate(self.__alleles_combinations) if re.search(
+                r'selfish', item)]
             altruists = 0
+            selfish = 0
             for altruistic_index in altruistic_indexes:
                 altruists += np.count_nonzero(phenotypes == altruistic_index)
-            # If there are no altruists the simulation will stop
-            # and if the script was called from Alts.py a new one will start
-            if not altruists:
+            for selfish_index in selfish_indexes:
+                selfish += np.count_nonzero(phenotypes == selfish_index)
+            if not altruists or not selfish:
                 self.__stop = True
             else:
                 # If the simulation does not stop, the data is saved in the HDF5 file
@@ -1083,14 +1087,37 @@ class Simulation:
         6. Reproduction, which include migration between groups\n
         7. The data of the generation is saved
         """
-        # print('generation', self.current_generation)
-        # d = {'selfish': 0, 'selfish_altruistic': 0, 'altruistic': 0}
-        # for g in self.__groups:
-        #     for i in g:
-        #         d[str(i.phenotype[0])] += 1
-        # print(d)
+
+        d = {'selfish': [0,0],
+             'selfish_altruistic': [0,0],
+             'altruistic': [0,0]}
+        print(self.current_generation)
+        for g in self.__groups:
+            for i in g:
+                d[str(i.phenotype[0])][0] += 1
+        suma = 0
+        for i in d.values():
+            suma += i[0]
+        for key, value in d.items():
+            d[key][1] = round(value[0]/suma, 4)
+        print('summary', d)
+        if self.current_generation < 9000:
+            for value in d.values():
+                if value[0] >= 2250:
+                    self.__stop = True
+        # print(sum(d.values()))
         self.reset_survival_prob()
-        model_module.selection(self.groups)
+        d = {'selfish': [0,0],
+             'selfish_altruistic': [0,0],
+             'altruistic': [0,0]}
+        model_module.selection(self.groups, d)
+        suma = 0
+        for i in d.values():
+            suma += i[0]
+        for key, value in d.items():
+            d[key][1] = round(value[0]/suma, 4)
+        print('compited', d)
+        print()
         self.save_avg_survival_prob()
         self.selection_event()
         if not self.__stop:
@@ -1218,45 +1245,64 @@ def simulator_main(output_dir, output_file, sim_seed=None, quiet=False):
     generation_start = time.perf_counter()
 
     # Progress bar
-    if not quiet:
-        bar_msg = 'Simulation progress: '
-        cols = get_terminal_size().columns - len(bar_msg)
-        bar_char = '█'
-        bar_end_chars = ' ▏▎▍▌▋▊▉'
+    bar_msg = 'Simulation progress: '
+    cols = get_terminal_size().columns - len(bar_msg)
+    bar_char = '█'
+    bar_end_chars = ' ▏▎▍▌▋▊▉'
     for i in range(generations):
         simulation.pass_generation()
         # If there are no more altruists or individuals the simulation stops
         if simulation.stop:
-            return True, output_file_name
+            break
+        progress = cols*i/generations
         if not quiet:
-            progress = cols*i/generations
             print('\r' + bar_msg + bar_char*int(progress) + bar_end_chars[int((progress - int(progress))*8)] +
                   ' ' * (cols - int(progress) - 1), end='')
         generation_end = time.perf_counter()
         generations_duration[i] = generation_end - generation_start
         generation_start = time.perf_counter()
 
+    if not simulation.stop:
     # At the end of the simulation, the SNVs are saved in the corresponding files
-    simulation.save_snvs()
+        simulation.save_snvs()
 
-    # The metadata for plotting the data is stored
-    phenotypes_names = []
-    alleles_names = []
-    for locus, alleles in simulation.loci_properties.items():
-        phenotypes_names.append(alleles[0])
-        alleles_names.append(alleles[0][:len(alleles[1])])
+        # The metadata for plotting the data is stored
+        phenotypes_names = []
+        alleles_names = []
+        for locus, alleles in simulation.loci_properties.items():
+            phenotypes_names.append(alleles[0])
+            alleles_names.append(alleles[0][:len(alleles[1])])
 
-    with h5py.File(output_file_name, 'a') as f:
-        f.attrs['generations'] = generations + 1
-        f.attrs['n_loci'] = len(simulation.loci)
-        f.attrs['groups'] = simulation.total_groups
-        f.attrs['loci'] = simulation.loci
-        f.attrs['phenotype_names'] = simulation.alleles_combinations
-        f.attrs['phenotypes_names'] = str(phenotypes_names)
-        f.attrs['alleles_names'] = str(alleles_names)
-        f.create_dataset('duration', data=generations_duration)
+        with h5py.File(output_file_name, 'a') as f:
+            f.attrs['generations'] = generations + 1
+            f.attrs['n_loci'] = len(simulation.loci)
+            f.attrs['groups'] = simulation.total_groups
+            f.attrs['loci'] = simulation.loci
+            f.attrs['phenotype_names'] = simulation.alleles_combinations
+            f.attrs['phenotypes_names'] = str(phenotypes_names)
+            f.attrs['alleles_names'] = str(alleles_names)
+            f.create_dataset('duration', data=generations_duration)
+        return False, output_file_name
 
-    return False, output_file_name
+    if simulation.stop:
+
+        # The metadata for plotting the data is stored
+        phenotypes_names = []
+        alleles_names = []
+        for locus, alleles in simulation.loci_properties.items():
+            phenotypes_names.append(alleles[0])
+            alleles_names.append(alleles[0][:len(alleles[1])])
+        with h5py.File(output_file_name, 'a') as f:
+            f.attrs['generations'] = simulation.current_generation
+            f.attrs['n_loci'] = len(simulation.loci)
+            f.attrs['groups'] = simulation.total_groups
+            f.attrs['loci'] = simulation.loci
+            f.attrs['phenotype_names'] = simulation.alleles_combinations
+            f.attrs['phenotypes_names'] = str(phenotypes_names)
+            f.attrs['alleles_names'] = str(alleles_names)
+            f.create_dataset('duration', data=generations_duration)
+        return True, output_file_name
+
 
 
 if __name__ == '__main__':

@@ -74,7 +74,7 @@ def create_simulation_results():
         output = [p.get() for p in results]
     out_file = os.path.join(os.path.dirname(__file__), args.directory, output[0][1])
     if output[0][0]:
-        if not args.quiet:
+        if args.quiet:
             minutes_avg, seconds_avg = divmod(mean(output[0][0]), 60)
             hours_avg, minutes_avg = divmod(minutes_avg, 60)
             minutes, seconds = divmod(perf_counter() - start_time, 60)
@@ -85,7 +85,7 @@ def create_simulation_results():
     else:
         # If the first element of the result is None, the simulation didn't end, the uncompleted results file is deleted
         # and a new simulation will start over
-        os.remove(out_file)
+        # os.remove(out_file)
         if not args.quiet:
             print('All individuals died or altruism went extinct in all simulations, no data generated')
             print('\033[1A', end='\x1b[2K')

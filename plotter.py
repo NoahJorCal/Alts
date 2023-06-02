@@ -44,10 +44,11 @@ survivors_pgen_bool = general_config['output']['survivors_pgen'].lower() in save
 survivors_pgr_pgen_bool = general_config['output']['survivors_pgr_pgen'].lower() in save_words
 
 
-def save_phenotypes_pgen(phenotype, phenotype_names, generation, phenotypes_list):
+def save_phenotypes_pgen(phenotype, phenotype_names, generation, phenotypes_list, phenotypes_order_indexes):
     generation = int(generation.split('_')[-1])
     for i in range(len(phenotype_names)):
-        phenotypes_list[generation][i] = np.count_nonzero(phenotype == i)
+        new_phenotype_index = phenotypes_order_indexes.index(i)
+        phenotypes_list[generation][new_phenotype_index] = np.count_nonzero(phenotype == i)
 
 
 def save_allele_pgen(alleles, n_loci, generation, alleles_names, alleles_list):
@@ -80,6 +81,11 @@ def save_survivors_pgen(survived, generation, survivors_list):
 
 def one_simulation_plot():
     with h5py.File(vars(args)['input'], 'r') as f:
+        # f.visititems(print_name_type)
+        # for k in f.attrs.keys():
+        #     print(f"{k}: {f.attrs[k]}")
+        # print()
+        # print()
         phenotypes_order = ['altruistic&neutral', 'selfish_altruistic&neutral', 'selfish&neutral']
         generations = f.attrs['generations']
         n_loci = f.attrs['n_loci']
@@ -90,11 +96,11 @@ def one_simulation_plot():
         for alleles in f.attrs['alleles_names'].translate({ord(i): '' for i in '[, '})[:-2].split(']'):
             alleles_names.append([x for x in alleles.split('\'')[::-1] if x != ''])
         phenotypes_order_indexes = [list(phenotype_names).index(phenotype) for phenotype in phenotypes_order]
-        phenotypes_all = np.zeros((generations, len(phenotype_names)))
+        phenotypes_all = np.zeros((generations + 1, len(phenotype_names)))
         # ASSUMING THAT EACH LOCUS HAS TWO ALLELES
-        alleles_all = np.zeros((n_loci, generations, 2))
-        as_ratio_all = np.zeros((generations, groups))
-        survivors_all = np.zeros(generations)
+        alleles_all = np.zeros((n_loci, generations + 1, 2))
+        as_ratio_all = np.zeros((generations + 1, groups))
+        survivors_all = np.zeros(generations + 1)
         for generation in (generation for generation in list(f.keys()) if 'generation' in generation):
             phenotype = f[generation]['phenotype'][:]
             group = f[generation]['group'][:]
@@ -104,7 +110,7 @@ def one_simulation_plot():
             for locus in loci:
                 alleles.append(f[generation][f'locus_{locus}'][:])
             if phenotypes_pgen_bool:
-                save_phenotypes_pgen(phenotype, phenotype_names, generation, phenotypes_all)
+                save_phenotypes_pgen(phenotype, phenotype_names, generation, phenotypes_all, phenotypes_order_indexes)
             if allele_pgen_bool:
                 save_allele_pgen(alleles, n_loci, generation, alleles_names, alleles_all)
             if altruist_selfish_ratio_pgen_bool:
@@ -113,8 +119,9 @@ def one_simulation_plot():
                 save_survivors_pgen(survived, generation, survivors_all)
 
         if phenotypes_pgen_bool:
+            # print(phenotypes_all[:229])
             phenotypes_proportions = phenotypes_all / np.sum(phenotypes_all, axis=1, keepdims=True)
-            phenotypes_proportions = np.flip(phenotypes_proportions, axis=1).T
+            phenotypes_proportions = phenotypes_proportions.T
 
         if allele_pgen_bool:
             alleles_proportions = alleles_all / np.sum(alleles_all, axis=2, keepdims=True)
@@ -126,7 +133,7 @@ def one_simulation_plot():
 
         generations_duration = f['duration'][:]
 
-    generation_x = np.arange(generations)
+    generation_x = np.arange(generations + 1)
 
     saved_plots = False
 
