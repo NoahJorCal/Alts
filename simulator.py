@@ -2,7 +2,7 @@
 from configparser import ConfigParser
 from os import path, makedirs, get_terminal_size
 import argparse
-# import h5py
+import h5py
 
 import time
 import warnings
@@ -91,164 +91,164 @@ def nested_len(nested_list):
     return length
 
 
-# class Chromosome:
-#     """
-#     One copy of the two from a locus, contains a list of SNVs and an allele.
-#     :param str allele: Name of the allele of this Chromosome.
-#     :ivar np.array snvs: List of floats representing mutations in an infinite sited model genome.
-#     """
-#     def __init__(self, allele):
-#         self.__snvs = np.array([])
-#         self.__allele = allele
-#
-#     @property
-#     def snvs(self):
-#         return self.__snvs
-#
-#     @snvs.setter
-#     def snvs(self, value):
-#         self.__snvs = value
-#
-#     @property
-#     def allele(self):
-#         return self.__allele
-#
-#     def mutate(self, locus_size, mutation_rate):
-#         """
-#         Adds mutations as floating point numbers to the SNVs list.
-#         :param int locus_size:
-#         :param float mutation_rate:
-#         """
-#         # Number of mutations calculated based on a Poisson distribution
-#         mean_mutations = mutation_rate * locus_size
-#         n_mutations = poisson.rvs(mean_mutations)
-#         mutations = np.sort([random.random() for _ in range(n_mutations)])
-#         mutations_indexes = np.searchsorted(self.__snvs, mutations)
-#         self.__snvs = np.insert(self.__snvs, mutations_indexes, mutations)
-#         if not list(np.sort(self.__snvs)) == list(self.__snvs):
-#             print(np.sort(self.__snvs), self.__snvs)
-#             raise Exception('SNVs list is not ordered')
-#
-#     # Discontinued: SNVs are now floats instead of objects for performance
-#     def snvs_to_positions(self):
-#         return np.array([snv.position for snv in self.__snvs])
-#
-#     def snvs_to_sequence(self, locus_size):
-#         """
-#         Save SNVs lists to haplotype format with 0 representing ancestral variant and 1 representing mutated
-#         :param int locus_size: Size of the locus used for calculating the position of the floats mutations
-#         :return: The chromosome's SNVs as a haplotype
-#         """
-#         # Position of the mutations
-#         mutations = [round(snv * locus_size) for snv in self.__snvs]
-#         sequence = np.zeros(locus_size)
-#         for mutation in mutations:
-#             if mutation != locus_size:
-#                 # If the position is already mutated, to avoid recurrent mutations, the next position is mutated
-#                 if sequence[mutation] == 1 and mutation + 1 != locus_size:
-#                     sequence[mutation + 1] = 1
-#                 else:
-#                     sequence[mutation] = 1
-#         return sequence
-#
-#
-# class Locus:
-#     """
-#     Locus object of the genome containing two chromosome, each one with an allele.
-#     :param list[Chromosome] chromosomes: Lists of the two Chromosome objects of the locus.
-#     :param str name: Name of the locus.
-#     :param int locus_size: Size of the locus for calculating mutation and recombination based on rate.
-#     :param float mutation_rate: Probability of mutation in every position in parts per unit.
-#     :param float recombination_rate: Probability of recombination in every position in parts per unit.
-#     """
-#     def __init__(self, chromosomes, name, locus_size, mutation_rate, recombination_rate):
-#         self.__chromosomes = chromosomes
-#         self.__name = name
-#         self.__locus_size = locus_size
-#         self.__mutation_rate = mutation_rate
-#         self.__recombination_rate = recombination_rate
-#
-#     @property
-#     def chromosomes(self):
-#         return self.__chromosomes
-#
-#     @chromosomes.setter
-#     def chromosomes(self, value):
-#         self.__chromosomes = value
-#
-#     @property
-#     def name(self):
-#         return self.__name
-#
-#     @property
-#     def locus_size(self):
-#         return self.__locus_size
-#
-#     @property
-#     def mutation_rate(self):
-#         return self.__mutation_rate
-#
-#     @property
-#     def recombination_rate(self):
-#         return self.__recombination_rate
-#
-#     def recombine(self, crossovers=None):
-#         """
-#         Recombine the chromosomes of the locus based on its recombination rate and size.
-#         """
-#         mean_crossovers = self.__recombination_rate * self.__locus_size
-#         # Crossover can be determined only for testing, in the simulation they are calculated at random
-#         if not crossovers:
-#             number_crossovers = poisson.rvs(mean_crossovers)
-#             crossovers = [random.random() for _ in range(number_crossovers)]
-#         for crossover_point in crossovers:
-#             # Index of crossover in each of the chromosomes
-#             crossover_index_0 = bisect.bisect_left(self.__chromosomes[0].snvs, crossover_point)
-#             crossover_index_1 = bisect.bisect_left(self.__chromosomes[1].snvs, crossover_point)
-#             # Chromosomes 0 gets the first part of itself and the second part of chromosome 1
-#             chromosome_0 = np.concatenate((
-#                 self.__chromosomes[0].snvs[:crossover_index_0],
-#                 self.__chromosomes[1].snvs[crossover_index_1:]))
-#             # Chromosomes 1 gets the first part of itself and the second part of chromosome 0
-#             chromosome_1 = np.concatenate((
-#                 self.__chromosomes[1].snvs[:crossover_index_1],
-#                 self.__chromosomes[0].snvs[crossover_index_0:]))
-#             # Recombined chromosomes are set to the attribute to be recombined again
-#             self.__chromosomes[0].snvs = chromosome_0
-#             self.__chromosomes[1].snvs = chromosome_1
-#
-#
-# class Genome:
-#     """
-#     Genome object which has all the genetic information. It contains all the loci of the genetic model.
-#     :param list[Locus] loci: List of Locus objects.
-#     """
-#     def __init__(self, loci):
-#         self.__loci = loci
-#
-#     @property
-#     def loci(self):
-#         return self.__loci
-#
-#     @property
-#     def locus_names(self):
-#         locus_names = []
-#         for locus in self.__loci:
-#             locus_names.append(locus.name)
-#         return locus_names
-#
-#     def haplotype(self):
-#         """
-#         Haplotypes of both the copies of each locus.
-#         :return: Tuple of haplotypes.
-#         """
-#         full_haplotype = []
-#         for locus in self.__loci:
-#             locus_haplotype = []
-#             for chromosome in locus.chromosomes:
-#                 locus_haplotype.append(chromosome.snvs_to_sequence(locus.locus_size))
-#             full_haplotype.append(locus_haplotype)
-#         return tuple(full_haplotype)
+class Chromosome:
+    """
+    One copy of the two from a locus, contains a list of SNVs and an allele.
+    :param str allele: Name of the allele of this Chromosome.
+    :ivar np.array snvs: List of floats representing mutations in an infinite sited model genome.
+    """
+    def __init__(self, allele):
+        self.__snvs = np.array([])
+        self.__allele = allele
+
+    @property
+    def snvs(self):
+        return self.__snvs
+
+    @snvs.setter
+    def snvs(self, value):
+        self.__snvs = value
+
+    @property
+    def allele(self):
+        return self.__allele
+
+    def mutate(self, locus_size, mutation_rate):
+        """
+        Adds mutations as floating point numbers to the SNVs list.
+        :param int locus_size:
+        :param float mutation_rate:
+        """
+        # Number of mutations calculated based on a Poisson distribution
+        mean_mutations = mutation_rate * locus_size
+        n_mutations = poisson.rvs(mean_mutations)
+        mutations = np.sort([random.random() for _ in range(n_mutations)])
+        mutations_indexes = np.searchsorted(self.__snvs, mutations)
+        self.__snvs = np.insert(self.__snvs, mutations_indexes, mutations)
+        if not list(np.sort(self.__snvs)) == list(self.__snvs):
+            print(np.sort(self.__snvs), self.__snvs)
+            raise Exception('SNVs list is not ordered')
+
+    # Discontinued: SNVs are now floats instead of objects for performance
+    def snvs_to_positions(self):
+        return np.array([snv.position for snv in self.__snvs])
+
+    def snvs_to_sequence(self, locus_size):
+        """
+        Save SNVs lists to haplotype format with 0 representing ancestral variant and 1 representing mutated
+        :param int locus_size: Size of the locus used for calculating the position of the floats mutations
+        :return: The chromosome's SNVs as a haplotype
+        """
+        # Position of the mutations
+        mutations = [round(snv * locus_size) for snv in self.__snvs]
+        sequence = np.zeros(locus_size)
+        for mutation in mutations:
+            if mutation != locus_size:
+                # If the position is already mutated, to avoid recurrent mutations, the next position is mutated
+                if sequence[mutation] == 1 and mutation + 1 != locus_size:
+                    sequence[mutation + 1] = 1
+                else:
+                    sequence[mutation] = 1
+        return sequence
+
+
+class Locus:
+    """
+    Locus object of the genome containing two chromosome, each one with an allele.
+    :param list[Chromosome] chromosomes: Lists of the two Chromosome objects of the locus.
+    :param str name: Name of the locus.
+    :param int locus_size: Size of the locus for calculating mutation and recombination based on rate.
+    :param float mutation_rate: Probability of mutation in every position in parts per unit.
+    :param float recombination_rate: Probability of recombination in every position in parts per unit.
+    """
+    def __init__(self, chromosomes, name, locus_size, mutation_rate, recombination_rate):
+        self.__chromosomes = chromosomes
+        self.__name = name
+        self.__locus_size = locus_size
+        self.__mutation_rate = mutation_rate
+        self.__recombination_rate = recombination_rate
+
+    @property
+    def chromosomes(self):
+        return self.__chromosomes
+
+    @chromosomes.setter
+    def chromosomes(self, value):
+        self.__chromosomes = value
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def locus_size(self):
+        return self.__locus_size
+
+    @property
+    def mutation_rate(self):
+        return self.__mutation_rate
+
+    @property
+    def recombination_rate(self):
+        return self.__recombination_rate
+
+    def recombine(self, crossovers=None):
+        """
+        Recombine the chromosomes of the locus based on its recombination rate and size.
+        """
+        mean_crossovers = self.__recombination_rate * self.__locus_size
+        # Crossover can be determined only for testing, in the simulation they are calculated at random
+        if not crossovers:
+            number_crossovers = poisson.rvs(mean_crossovers)
+            crossovers = [random.random() for _ in range(number_crossovers)]
+        for crossover_point in crossovers:
+            # Index of crossover in each of the chromosomes
+            crossover_index_0 = bisect.bisect_left(self.__chromosomes[0].snvs, crossover_point)
+            crossover_index_1 = bisect.bisect_left(self.__chromosomes[1].snvs, crossover_point)
+            # Chromosomes 0 gets the first part of itself and the second part of chromosome 1
+            chromosome_0 = np.concatenate((
+                self.__chromosomes[0].snvs[:crossover_index_0],
+                self.__chromosomes[1].snvs[crossover_index_1:]))
+            # Chromosomes 1 gets the first part of itself and the second part of chromosome 0
+            chromosome_1 = np.concatenate((
+                self.__chromosomes[1].snvs[:crossover_index_1],
+                self.__chromosomes[0].snvs[crossover_index_0:]))
+            # Recombined chromosomes are set to the attribute to be recombined again
+            self.__chromosomes[0].snvs = chromosome_0
+            self.__chromosomes[1].snvs = chromosome_1
+
+
+class Genome:
+    """
+    Genome object which has all the genetic information. It contains all the loci of the genetic model.
+    :param list[Locus] loci: List of Locus objects.
+    """
+    def __init__(self, loci):
+        self.__loci = loci
+
+    @property
+    def loci(self):
+        return self.__loci
+
+    @property
+    def locus_names(self):
+        locus_names = []
+        for locus in self.__loci:
+            locus_names.append(locus.name)
+        return locus_names
+
+    def haplotype(self):
+        """
+        Haplotypes of both the copies of each locus.
+        :return: Tuple of haplotypes.
+        """
+        full_haplotype = []
+        for locus in self.__loci:
+            locus_haplotype = []
+            for chromosome in locus.chromosomes:
+                locus_haplotype.append(chromosome.snvs_to_sequence(locus.locus_size))
+            full_haplotype.append(locus_haplotype)
+        return tuple(full_haplotype)
 
 
 class Individual:
