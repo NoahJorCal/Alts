@@ -589,7 +589,6 @@ class Simulation:
             if type(self.__immigration_phenotype) == str:
                 self.__immigration_phenotype = [self.__immigration_phenotype]
             self.__immigrants_genotype = []
-            print(self.loci, self.__immigration_phenotype)
             if len(self.loci) != len(self.__immigration_phenotype):
                 raise Exception('Incorrect number of phenotypes specified for immigrants')
             for allele, locus_i in zip(self.__immigration_phenotype, range(len(self.__immigration_phenotype))):
@@ -1107,8 +1106,8 @@ class Simulation:
                 elif 'selfish' in ind.phenotype[0]:
                     selfish += 1
         # If there are no altruists or no selfish the simulation will stop
-        if not altruists or not selfish:
-            self.__stop = True
+        # if not altruists or not selfish:
+        #     self.__stop = True
 
     def pass_generation(self):
         """
@@ -1321,9 +1320,9 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
     for i in range(generations):
         simulation.pass_generation()
         # If there are no more altruists or individuals the simulation stops
+        if simulation.stop:
+            return True, output_file_name
         if save_data:
-            if simulation.stop:
-                return True, output_file_name
             generation_end = time.perf_counter()
             generations_duration[i] = generation_end - generation_start
             generation_start = time.perf_counter()

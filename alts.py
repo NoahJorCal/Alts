@@ -57,15 +57,12 @@ def run_simulation(save_data, output_dir, output_file, simulate_genome, seed, qu
     start_counter = perf_counter()
     stop, output = simulator_main(save_data, output_dir, output_file, simulate_genome, seed, quiet)
     simulation_duration = perf_counter() - start_counter
-    if save_data:
-        if stop:
-            if not args.quiet:
-                print(f'\033[K\033[FSimulation ended because all individuals died or altruism went extinct')
-            return None, output
-        else:
-            return simulation_duration, output
+    if stop:
+        if not args.quiet:
+            print(f'\033[K\033[FSimulation ended because all individuals died or altruism went extinct')
+        return None, output
     else:
-        return True, output
+        return simulation_duration, output
 
 
 def create_simulation_results():
