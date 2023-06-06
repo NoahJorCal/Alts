@@ -17,7 +17,7 @@ parser.add_argument('-i', '--input', default='simulation_output.h5', help='Input
 parser.add_argument('-s', '--show', action='store_true', help='Show the plots in popup windows, they will be '
                                                               'saved .png if -ns or --ns is not used')
 parser.add_argument('-ns', '--no-save', dest='save_plots', action='store_false',
-                    help='Avoid saving the plots as .png files')
+                    help='The plots will not be saved as .png files')
 args = parser.parse_args()
 
 

@@ -5,6 +5,7 @@
 output/
 snvs/
 *.h5
+*.csv
 
 # text files
 *.txt
@@ -16,3 +17,9 @@ snvs/
 # git
 .gitignore
 .git
+.idea/
+__pycache__/
+
+# test scripts
+testing.py
+exponential_distribution.py

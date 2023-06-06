@@ -5,20 +5,34 @@ from configparser import ConfigParser
 import sys
 from os import path
 from relatedness import relatedness_coefficient
+from scipy.stats import truncnorm
 
-# Add the alts directory to the Python path
-sys.path.append(path.join(path.dirname(__file__), '..'))
+# # Add the alts directory to the Python path
+# sys.path.append(path.join(path.dirname(__file__), '..'))
+#
+# # Import general configuration
+# general_config = ConfigParser()
+# config_path = path.join(path.dirname(__file__), '..', 'config.ini')
+# general_config.read(config_path)
 
-# Import general configuration
-general_config = ConfigParser()
-config_path = path.join(path.dirname(__file__), '..', 'config.ini')
-general_config.read(config_path)
+# # Import variable parameters configuration
+# var_params_config = ConfigParser()
+# var_params_path = path.join(path.dirname(__file__), '..', 'variable_config.ini')
+# var_params_config.read(var_params_path)
 
-# Save altruism configuration
-exp_factor_config = float(general_config['population']['benefit_relatedness_exp_factor'])
-cost_benefit_ratio_config = float(general_config['population']['cost_benefit_ratio'])
-minimum_benefit_config = float(general_config['population']['minimum_benefit'])
-maximum_cost_config = float(general_config['population']['maximum_cost'])
+# # Save altruism configuration
+# exp_factor_config = float(general_config['population']['benefit_relatedness_exp_factor'])
+# cost_benefit_ratio_config = float(general_config['population']['cost_benefit_ratio'])
+# minimum_benefit_config = float(general_config['population']['minimum_benefit'])
+# maximum_cost_config = float(general_config['population']['maximum_cost'])
+# help_higher_sp_probability_config = float(general_config['population']['help_higher_sp_probability'])
+# help_lower_sp_probability_config = float(general_config['population']['help_lower_sp_probability'])
+# # Save selfish configuration
+# gained_lost_ratio_config = float(general_config['population']['gained_lost_ratio'])
+# gained_per_competition_config = float(general_config['population']['gained_per_competition'])
+# maximum_gained_config = float(general_config['population']['maximum_gained'])
+# compete_higher_sp_probability_config = float(general_config['population']['compete_higher_sp_probability'])
+# compete_lower_sp_probability_config = float(general_config['population']['compete_higher_sp_probability'])
 
 
 def exp_f(x, factor, penetrance, min_benefit):
@@ -64,7 +78,8 @@ def get_possible_recipients(altruist, group):
 
 
 def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
-                   exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost):
+                   exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost,
+                   help_higher_sp_probability, help_lower_sp_probability):
     """
     The altruistic individual gives part of its survival probability to a random individual from the possible recipients
     based their relatedness and an exponential distribution.
@@ -80,17 +95,23 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
     :param float minimum_benefit: Minimum benefit altruists will give regardless of the relatedness.
     :param float maximum_cost: When the added cost reaches the maximum cost the benefit in the interaction will be the
     remaining cost to reach the maximum.
+    :param float help_higher_sp_probability: Probability of helping an individual with higher survival probability.
+    :param float help_lower_sp_probability: Probability of helping an individual with lower survival probability.
     :return: The new modified added cost.
     """
     # The benefit is multiplied by the penetrance
     # If there is no codominance the penetrance is 1, if there is, it is 0.5
-    minimum_benefit = minimum_benefit * penetrance
-    maximum_cost = maximum_cost * penetrance
+    minimum_benefit *= penetrance
+    maximum_cost *= penetrance
     # A random individual from the group is selected and deleted from the group
     random.shuffle(possible_recipients)
     recipient = possible_recipients.pop()
-    # The altruist will only help the selected individual if it has equal or less survival probability
-    if recipient.survival_probability <= altruist.survival_probability:
+    # Decides if it's going to help based on if the recipient has more or less sp and the configured probabilities
+    if altruist.survival_probability >= recipient.survival_probability:
+        act_altruistic = random.random() < help_higher_sp_probability
+    else:
+        act_altruistic = random.random() < help_lower_sp_probability
+    if act_altruistic:
         # The ancestry list is prepared for the calculation of the relatedness
         recipient_ancestry = [[recipient.id]]
         recipient_ancestry.extend(recipient.ancestry)
@@ -117,19 +138,85 @@ def altruistic_act(altruist, possible_recipients, penetrance, added_cost,
         return added_cost
 
 
-def selection(groups,
-              exp_factor=exp_factor_config, cost_benefit_ratio=cost_benefit_ratio_config,
-              minimum_benefit=minimum_benefit_config, maximum_cost=maximum_cost_config):
+def selfish_act(selfish, possible_recipients, penetrance, added_gained,
+                gained_lost_ratio, gained_per_competition, maximum_gained,
+                compete_higher_sp_probability, compete_lower_sp_probability):
+    """
+    The selfish individual competes with another individual, the selfish will gain less survival probability than lost
+    by the competitor as the competition has a wear effect on both individuals.
+    :param simulator.Individual selfish: Selfish individual that will compete with other individuals
+    :param list[simulator.Individual] possible_recipients: Altruist's group without it from which the recipient will
+    be selected
+    :param float penetrance: Lost based on gain, gain per interaction and maximum gain is based on penetrance.
+    In homozygous individuals the penetrance is 1 and in heterozygous it is 0.5.
+    :param float added_gained: Added survival probability gained by the current selfish individual.
+    :param float gained_lost_ratio: Lost = Gain * Ratio
+    :param float gained_per_competition: Gained survival probability by the selfish in each interaction.
+    :param float maximum_gained: When the added gain reaches the maximum, the gain in the interaction will be the
+    remaining gain to reach the maximum.
+    :param float compete_higher_sp_probability: Probability of competing with an individual with higher
+    survival probability.
+    :param float compete_lower_sp_probability: Probability of competing with an individual with lower
+    survival probability.
+    :return: The new modified added gain.
+    """
+    # The gained survival probability is multiplied by the penetrance
+    gained_per_competition *= penetrance
+    maximum_gained *= penetrance
+    random.shuffle(possible_recipients)
+    competitor = possible_recipients.pop()
+    # Decides if it's going to compete based on if the competitor has more or less sp and the configured probabilities
+    if selfish.survival_probability >= competitor.survival_probability:
+        act_altruistic = random.random() < compete_higher_sp_probability
+    else:
+        act_altruistic = random.random() < compete_lower_sp_probability
+    if act_altruistic:
+        # If the gained sp in this interaction is going to exceed the maximum, the remainder is gained instead
+        if maximum_gained - added_gained < gained_per_competition:
+            gained = maximum_gained - added_gained
+        else:
+            gained = gained_per_competition
+        # The lost is calculated from the gained sp and the ratio
+        lost = gained * gained_lost_ratio
+        selfish.survival_probability += gained
+        competitor.survival_probability -= lost
+        return added_gained + gained
+    else:
+        return added_gained
+
+
+def selection(groups, altruism_config, selfishness_config):
     """
     For each individual in the group, if it is altruistic, it will help other individuals.
     :param list[list[simulator.Individual]] groups: Whole population structured in groups.
-    :param float exp_factor: Factor that determines the slope of the exponential distribution. The higher the value,
-    the steeper slope.
-    :param float cost_benefit_ratio: Cost = Benefit * Ratio
-    :param float minimum_benefit: Minimum benefit altruists will give regardless of the relatedness.
-    :param float maximum_cost: When the added cost reaches the maximum cost the benefit in the interaction will be the
-    remaining cost to reach the maximum.
+    :param list[float] altruism_config: List with altruism configuration parameters:\n
+    exp_factor: Factor that determines the slope of the exponential distribution.
+    The higher the value, the steeper slope.\n
+    cost_benefit_ratio: Cost = Benefit * Ratio\n
+    minimum_benefit: Minimum benefit altruists will give regardless of the relatedness.\n
+    maximum_cost: When the added cost reaches the maximum cost the benefit in the interaction
+    will be the remaining cost to reach the maximum.\n
+    help_higher_sp_probability: Probability of helping an individual with higher survival probability.\n
+    help_lower_sp_probability: Probability of helping an individual with lower survival probability.\n
+    :param list[float] selfishness_config: List with selfishness configuration parameters:\n
+    gained_lost_ratio: Lost = Gained * Ratio\n
+    gained_per_competition: Survival probability gained in each competition interaction.\n
+    maximum_gained: When the added gained survival probability reaches the maximum, the lost survival probability
+    in the interaction will be the remaining gain to reach the maximum.\n
+    compete_higher_sp_probability: Probability of competing with an individual with higher survival probability.\n
+    compete_lower_sp_probability: Probability of competing with an individual with lower survival probability.\n
     """
+    exp_factor = altruism_config[0]
+    cost_benefit_ratio = altruism_config[1]
+    minimum_benefit = altruism_config[2]
+    maximum_cost = altruism_config[3]
+    help_higher_sp_probability = altruism_config[4]
+    help_lower_sp_probability = altruism_config[5]
+    gained_lost_ratio = selfishness_config[0]
+    gained_per_competition = selfishness_config[1]
+    maximum_gained = selfishness_config[2]
+    compete_higher_sp_probability = selfishness_config[3]
+    compete_lower_sp_probability = selfishness_config[4]
     for group in groups:
         for individual in group:
             # If the individual is altruistic homozygous
@@ -138,25 +225,44 @@ def selection(groups,
                 if len(possible_recipients) != 0:
                     added_cost = 0
                     while maximum_cost > added_cost:
-                        # If the new added cost ends up being higher than the maximum cost,
-                        # the last interaction will not be reverted, so in some cases,
-                        # the individual will have sacrificed more fitness than expected
                         added_cost = altruistic_act(individual, possible_recipients, 1, added_cost,
-                                                    exp_factor, cost_benefit_ratio,
-                                                    minimum_benefit, maximum_cost)
+                                                    exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost,
+                                                    help_higher_sp_probability, help_lower_sp_probability)
                         if len(possible_recipients) == 0:
                             break
-            # If the individual is altruistic heterozygous
-            elif '_' in individual.phenotype[0]:
+            # If the individual is selfish homozygous
+            elif individual.phenotype[0] == 'selfish':
                 possible_recipients = get_possible_recipients(individual, group)
                 if len(possible_recipients) != 0:
-                    added_cost = 0
-                    while (maximum_cost * 0.5) > added_cost:
-                        # If the new added cost ends up being higher than the maximum cost,
-                        # the last interaction will not be reverted, so in some cases,
-                        # the individual will have sacrificed more fitness than expected
-                        added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
-                                                    exp_factor, cost_benefit_ratio,
-                                                    minimum_benefit, maximum_cost)
+                    added_gained = 0
+                    while maximum_gained > added_gained:
+                        added_gained = selfish_act(individual, possible_recipients, 1, added_gained,
+                                                   gained_lost_ratio, gained_per_competition, maximum_gained,
+                                                   compete_higher_sp_probability, compete_lower_sp_probability)
                         if len(possible_recipients) == 0:
                             break
+            # If the individual is heterozygous
+            else:
+                # Chose if the individual will act selfish or altruistically
+                if random.random() < 0.5:
+                    # Altruistic
+                    possible_recipients = get_possible_recipients(individual, group)
+                    if len(possible_recipients) != 0:
+                        added_cost = 0
+                        while maximum_cost > added_cost:
+                            added_cost = altruistic_act(individual, possible_recipients, 0.5, added_cost,
+                                                        exp_factor, cost_benefit_ratio, minimum_benefit, maximum_cost,
+                                                        help_higher_sp_probability, help_lower_sp_probability)
+                            if len(possible_recipients) == 0:
+                                break
+                else:
+                    # Selfish
+                    possible_recipients = get_possible_recipients(individual, group)
+                    if len(possible_recipients) != 0:
+                        added_gained = 0
+                        while maximum_gained > added_gained:
+                            added_gained = selfish_act(individual, possible_recipients, 0.5, added_gained,
+                                                       gained_lost_ratio, gained_per_competition, maximum_gained,
+                                                       compete_higher_sp_probability, compete_lower_sp_probability)
+                            if len(possible_recipients) == 0:
+                                break
