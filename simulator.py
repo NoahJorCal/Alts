@@ -517,7 +517,7 @@ class Simulation:
         self.__output_file_name = output_file_name
         self.__save_data = save_data
         self.__simulate_genome = simulate_genome
-        self.__stop = False
+        self.__stop = 0
         '''
         Example of model_config_dict:
         {'module': {'name': 'blind_altruism_genomes'},    # Model name
@@ -758,7 +758,7 @@ class Simulation:
             if len(survivors_groups) > 2:
                 viable_groups = True
         if not viable_groups:
-            self.__stop = True
+            self.__stop = 2
         self.__groups = survivors
         # If the method was not called from a test, the survivors data is stored in the output file
         if self.__save_data:
@@ -1108,7 +1108,7 @@ class Simulation:
         # If there are no altruists or no selfish the simulation will stop
         # print(altruists, selfish)
         if not altruists or not selfish:
-            self.__stop = True
+            self.__stop = 1
 
     def pass_generation(self):
         """
@@ -1318,11 +1318,13 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
         generations_duration = np.zeros(generations)
         generation_start = time.perf_counter()
 
+    stop = False
     for i in range(generations):
         simulation.pass_generation()
         # If there are no more altruists or individuals the simulation stops
         if simulation.stop:
-            return True, output_file_name
+            stop = True
+            break
         if save_data:
             generation_end = time.perf_counter()
             generations_duration[i] = generation_end - generation_start
@@ -1343,7 +1345,13 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
 
     output = [group_size, group_size_limit, population_size_limit, group_migration, survival_probability_mean,
               survival_probability_sd, *altruism_configuration, *selfishness_configuration, altruism_initial_freq,
-              simulation.altruist_perc(), simulation.current_generation]
+              simulation.altruist_perc(), simulation.current_generation - 1]
+
+    if stop:
+        if simulation.stop == 2:
+            return True, output_file_name
+        elif simulation.stop == 1:
+            return False, output
 
     if save_data:
         # The metadata for plotting the data is stored
@@ -1366,6 +1374,7 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
         return False, output_file_name
     else:
         return False, output
+
 
 
 if __name__ == '__main__':
