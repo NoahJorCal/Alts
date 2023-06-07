@@ -1106,8 +1106,9 @@ class Simulation:
                 elif 'selfish' in ind.phenotype[0]:
                     selfish += 1
         # If there are no altruists or no selfish the simulation will stop
-        # if not altruists or not selfish:
-        #     self.__stop = True
+        # print(altruists, selfish)
+        if not altruists or not selfish:
+            self.__stop = True
 
     def pass_generation(self):
         """
