@@ -166,7 +166,7 @@ def selfish_act(selfish, possible_recipients, penetrance, added_gained,
     random.shuffle(possible_recipients)
     competitor = possible_recipients.pop()
     # Decides if it's going to compete based on if the competitor has more or less sp and the configured probabilities
-    if selfish.survival_probability >= competitor.survival_probability:
+    if competitor.survival_probability >= selfish.survival_probability:
         act_altruistic = random.random() < compete_higher_sp_probability
     else:
         act_altruistic = random.random() < compete_lower_sp_probability

@@ -55,14 +55,14 @@ def run_simulation(save_data, output_dir, output_file, simulate_genome, seed, qu
     as it could have changed because of uniquify.
     """
     start_counter = perf_counter()
-    stop, output = simulator_main(save_data, output_dir, output_file, simulate_genome, seed, quiet)
+    stop, out_file_name = simulator_main(save_data, output_dir, output_file, simulate_genome, seed, quiet)
     simulation_duration = perf_counter() - start_counter
     if stop:
         if not args.quiet:
             print(f'\033[K\033[FSimulation ended because all individuals died or altruism went extinct')
-        return None, output
+        return None, out_file_name
     else:
-        return simulation_duration, output
+        return simulation_duration, out_file_name
 
 
 def create_simulation_results():
@@ -72,18 +72,14 @@ def create_simulation_results():
     """
     if not args.quiet:
         print(f'Running first round of {args.cpu} simulations...')
-    # If the configured CPUs to use is higher than the machine's CPUs
-    if args.cpu > os.cpu_count():
-        raise CPUError()
-    with multiprocessing.Pool(processes=args.cpu) as pool:
-        results = [pool.apply_async(run_simulation, args=(args.save_data, args.directory, args.output,
-                                                          args.simulate_genome, args.seed, args.quiet))]
-        output = [p.get() for p in results]
+
+    output, out_file = run_simulation(args.save_data, args.directory, args.output,
+                                      args.simulate_genome, args.seed, args.quiet)
+
     if args.save_data:
-        out_file = os.path.join(os.path.dirname(__file__), args.directory, output[0][1])
-    if output[0][0]:
-        with open('output.csv', 'a') as out_file:
-            out_file.write(str(output[0][1])[1:-1].replace(' ', '') + '\n')
+        out_file = os.path.join(os.path.dirname(__file__), args.directory, out_file)
+
+    if output:
         if not args.quiet:
             minutes_avg, seconds_avg = divmod(mean(output[0][0]), 60)
             hours_avg, minutes_avg = divmod(minutes_avg, 60)
@@ -92,6 +88,9 @@ def create_simulation_results():
             print(f'\033[K\033[F\033[KEach simulation took {round(hours_avg):d}:{round(minutes_avg):02d}:'
                   f'{round(seconds):02d} on average and {round(hours):d}:{round(minutes):02d}:{round(seconds):02d} '
                   f'in total')
+            print(f'\x1b[2KThe results of the simulation have been saved in {out_file}')
+        # Return False if not aborted
+        return False
 
     else:
         # If the first element of the result is None, the simulation didn't end, the uncompleted results file is deleted
@@ -103,11 +102,8 @@ def create_simulation_results():
             print('\033[1A', end='\x1b[2K')
             print('\033[1A', end='\x1b[2K')
             print('\033[1A', end='\x1b[2K')
+        # Return True if not aborted
         return True
-
-    if not args.quiet:
-        print(f'\x1b[2KThe results of the simulation have been saved in {out_file}')
-    return False
 
 
 if __name__ == '__main__':

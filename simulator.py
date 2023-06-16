@@ -38,6 +38,8 @@ def truncated_normal(arguments):
     low = arguments[1]
     upp = arguments[2]
     sd = arguments[3]
+    if sd == 0:
+        return mean
     return truncnorm((low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd).rvs()
 
 
@@ -758,7 +760,7 @@ class Simulation:
             if len(survivors_groups) > 2:
                 viable_groups = True
         if not viable_groups:
-            self.__stop = True
+            self.__stop = 2
         self.__groups = survivors
         # If the method was not called from a test, the survivors data is stored in the output file
         if self.__save_data:
@@ -1108,7 +1110,7 @@ class Simulation:
         # If there are no altruists or no selfish the simulation will stop
         # print(altruists, selfish)
         if not altruists or not selfish:
-            self.__stop = True
+            self.__stop = 1
 
     def pass_generation(self):
         """
@@ -1203,13 +1205,9 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
     :return: A tuple with whether the simulation ended because of lack of altruists or individuals and the name of the
     output file, as it could have changed because of uniquify.
     """
-    # Set seed for getting the same results everytime
-    if sim_seed:
-        random.seed(sim_seed)
-        np.random.seed(sim_seed)
-    else:
-        random.seed()
-        np.random.seed()
+    # Generate random seed for parameters initialization
+    random.seed()
+    np.random.seed()
 
     if save_data:
         # The output directory is created if it did not exist
@@ -1287,6 +1285,18 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
                                               var_params_config['parameters']['altruism_initial_freq']
                                              .replace(' ', '').split(',')])
     model_config_dict['behaviour']['initial_frequencies'] = str(1 - altruism_initial_freq)
+
+    # Set seed for getting the same results everytime
+    if sim_seed:
+        random.seed(sim_seed)
+        np.random.seed(sim_seed)
+
+    parameters = [group_size, group_size_limit, population_size_limit, group_migration, survival_probability_mean,
+                  survival_probability_sd, *altruism_configuration, *selfishness_configuration, altruism_initial_freq]
+    # Initial parameters are saved in the output file
+    with open('output.csv', 'a') as out_file:
+        out_file.write(str(parameters)[1:-1].replace(' ', '') + ',')
+
     # The simulation is initialized and set up by populating the groups and
     # saving the state of the simulation at the beginning of generation 0
     simulation = Simulation(generations,
@@ -1318,11 +1328,12 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
         generations_duration = np.zeros(generations)
         generation_start = time.perf_counter()
 
+    # Generations loop
     for i in range(generations):
         simulation.pass_generation()
         # If there are no more altruists or individuals the simulation stops
         if simulation.stop:
-            return True, output_file_name
+            break
         if save_data:
             generation_end = time.perf_counter()
             generations_duration[i] = generation_end - generation_start
@@ -1341,31 +1352,33 @@ def simulator_main(save_data, output_dir, output_file, simulate_genome, sim_seed
     if simulation.simulate_genome:
         simulation.save_snvs()
 
-    output = [group_size, group_size_limit, population_size_limit, group_migration, survival_probability_mean,
-              survival_probability_sd, *altruism_configuration, *selfishness_configuration, altruism_initial_freq,
-              simulation.altruist_perc(), simulation.current_generation]
+    if not simulation.stop or simulation.stop == 1:
+        result = [simulation.altruist_perc(), simulation.current_generation]
+        with open('output.csv', 'a') as out_file:
+            out_file.write(str(result)[1:-1].replace(' ', '') + '\n')
 
-    if save_data:
-        # The metadata for plotting the data is stored
-        phenotypes_names = []
-        alleles_names = []
-        for locus, alleles in simulation.loci_properties.items():
-            phenotypes_names.append(alleles[0])
-            alleles_names.append(alleles[0][:len(alleles[1])])
+        if save_data:
+            # The metadata for plotting the data is stored
+            phenotypes_names = []
+            alleles_names = []
+            for locus, alleles in simulation.loci_properties.items():
+                phenotypes_names.append(alleles[0])
+                alleles_names.append(alleles[0][:len(alleles[1])])
 
-        with h5py.File(output_file_name, 'a') as f:
-            f.attrs['generations'] = generations + 1
-            f.attrs['n_loci'] = len(simulation.loci)
-            f.attrs['groups'] = simulation.total_groups
-            f.attrs['loci'] = simulation.loci
-            f.attrs['phenotype_names'] = simulation.alleles_combinations
-            f.attrs['phenotypes_names'] = str(phenotypes_names)
-            f.attrs['alleles_names'] = str(alleles_names)
-            f.create_dataset('duration', data=generations_duration)
+            with h5py.File(output_file_name, 'a') as f:
+                f.attrs['generations'] = generations + 1
+                f.attrs['n_loci'] = len(simulation.loci)
+                f.attrs['groups'] = simulation.total_groups
+                f.attrs['loci'] = simulation.loci
+                f.attrs['phenotype_names'] = simulation.alleles_combinations
+                f.attrs['phenotypes_names'] = str(phenotypes_names)
+                f.attrs['alleles_names'] = str(alleles_names)
+                f.create_dataset('duration', data=generations_duration)
 
+        # Return whether the simulation was aborted because of lack of individuals
         return False, output_file_name
     else:
-        return False, output
+        return True, output_file_name
 
 
 if __name__ == '__main__':
