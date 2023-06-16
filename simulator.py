@@ -1123,7 +1123,19 @@ class Simulation:
         6. Reproduction, which include migration between groups\n
         7. The data of the generation is saved
         """
-        # print(self.current_generation)
+        d = {'selfish': [0, 0],
+             'selfish_altruistic': [0, 0],
+             'altruistic': [0, 0]}
+        print(self.current_generation)
+        for g in self.__groups:
+            for i in g:
+                d[str(i.phenotype[0])][0] += 1
+        suma = 0
+        for i in d.values():
+            suma += i[0]
+        for key, value in d.items():
+            d[key][1] = round(value[0] / suma, 4)
+        print('summary', d)
         self.reset_survival_prob()
         model_module.selection(self.groups, self.__altruism_config, self.__selfishness_config)
         self.save_avg_survival_prob()
